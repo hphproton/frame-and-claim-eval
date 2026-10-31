@@ -9,9 +9,10 @@ RUN_ID ?=
 -include .env
 export
 
-.PHONY: help reproduce selftest run controls test-harness clean-images
+.PHONY: help reproduce selftest run controls test-harness clean-images replay
 help:
 	@echo "make reproduce   regrade every saved trial offline and rebuild tables (no Docker, no keys)"
+	@echo "make replay      rebuild each container and re-run saved tool commands (Docker, no keys)"
 	@echo "make selftest    run grader self-tests in containers (Docker/Podman, no keys)"
 	@echo "make controls    oracle + no-op control agents through the full harness loop (no keys)"
 	@echo "make test-harness  offline check of the API adapters' wire format (no keys)"
@@ -19,6 +20,9 @@ help:
 
 reproduce:
 	$(PY) -m harness.cli reproduce
+
+replay:
+	$(PY) -m harness.cli replay
 
 selftest:
 	$(PY) -m harness.cli selftest

@@ -1,7 +1,7 @@
-"""CLI: python -m harness.cli {run,selftest,reproduce,report} ...  (see Makefile)"""
+"""CLI: python -m harness.cli {run,selftest,reproduce,replay} ...  (see Makefile)"""
 import argparse, datetime as dt, json, os, random, sys, tomllib
 
-from . import agent, env, report, reproduce, selftest, storage
+from . import agent, env, replay, report, reproduce, selftest, storage
 
 
 def cmd_run(a):
@@ -12,7 +12,7 @@ def cmd_run(a):
     missing = sorted({need[m["provider"]] for m in models if m["provider"] in need and not os.environ.get(need[m["provider"]])})
     if missing:
         print(f"missing environment variables: {', '.join(missing)} (see .env.example). "
-              "Keyless options: make reproduce, make selftest, make controls.", file=sys.stderr)
+              "Keyless options: make reproduce, make replay, make selftest, make controls.", file=sys.stderr)
         return 2
     run_id = a.run_id or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rng = random.Random(a.seed)
@@ -46,11 +46,16 @@ def main(argv=None):
     s.add_argument("tasks", nargs="*")
     s.add_argument("--workers", type=int, default=4)
     sub.add_parser("reproduce", help="keyless, Docker-free regrade of saved outputs")
+    rp = sub.add_parser("replay", help="keyless rebuild-and-rerun of saved trajectories (Docker, no keys)")
+    rp.add_argument("--runs", default=str(storage.RUNS), help="directory of saved trials (default: runs/)")
+    rp.add_argument("--workers", type=int, default=2)
     a = p.parse_args(argv)
     if a.cmd == "run":
         return cmd_run(a)
     if a.cmd == "selftest":
         return selftest.main(a.tasks or env.Task.all_ids(), a.workers)
+    if a.cmd == "replay":
+        return replay.main(a.runs, a.workers)
     return reproduce.main()
 
 
