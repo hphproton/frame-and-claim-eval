@@ -33,4 +33,9 @@ clean-images:
 	-$${DOCKER:-docker} images --format '{{.Repository}}:{{.Tag}}' | grep '^micro1eval/' | xargs -r $${DOCKER:-docker} rmi
 
 test-harness:
-	$(PY) tests_harness/test_adapters.py
+	@fail=0; \
+	for t in tests_harness/test_*.py; do \
+	  echo "== $$t"; \
+	  $(PY) $$t || fail=1; \
+	done; \
+	exit $$fail

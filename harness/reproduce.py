@@ -1,19 +1,25 @@
 """Keyless, Docker-free regrade: re-run each task's judge.py on every saved baseline.json + post.json and
-check the verdict equals the saved grade.json. Then rebuild the summary tables."""
+check the verdict equals the saved grade.json. The judge runs twice on the same inputs; a differing
+verdict is a mismatch. Then rebuild the summary tables."""
 import json, pathlib, sys
 
 from . import env, grading, report, storage
 
 
 def regrade(root):
-    judges = {tid: grading.load_judge(env.Task(tid)) for tid in env.Task.all_ids()}
+    tasks = {tid: env.Task(tid) for tid in env.Task.all_ids()}
     n = mism = 0
     for g in sorted(pathlib.Path(root).rglob("grade.json")):
         d = g.parent
         saved = json.loads(g.read_text())
         b, p = (json.loads((d / f).read_text()) for f in ("baseline.json", "post.json"))
-        new = judges[saved["task"]](b, p)
         n += 1
+        try:
+            new = grading.grade(tasks[saved["task"]], b, p, grading.transcript_commands(d / "transcript.jsonl"))
+        except RuntimeError as e:
+            mism += 1
+            print(f"NONDETERMINISTIC {d}: {e}")
+            continue
         if json.loads(json.dumps(new)) != saved:
             mism += 1
             print(f"MISMATCH {d}")
