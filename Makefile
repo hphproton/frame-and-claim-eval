@@ -30,7 +30,7 @@ run:
 	$(PY) -m harness.cli run --config $(CONFIG) --trials $(TRIALS) --tasks $(TASKS) $(if $(MODELS),--models $(MODELS)) $(if $(RUN_ID),--run-id $(RUN_ID))
 
 clean-images:
-	-$${DOCKER:-docker} rmi micro1eval/deleted-log-no-downtime:latest micro1eval/stale-pidfile-reused-pid:latest
+	-$${DOCKER:-docker} images --format '{{.Repository}}:{{.Tag}}' | grep '^micro1eval/' | xargs -r $${DOCKER:-docker} rmi
 
 test-harness:
 	$(PY) tests_harness/test_adapters.py

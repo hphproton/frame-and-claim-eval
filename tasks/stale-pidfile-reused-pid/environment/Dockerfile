@@ -1,6 +1,8 @@
 # Base image pinned by digest (debian:bookworm-slim, pulled 2026-10-31).
+# Apt package versions are intentionally not pinned: a pin breaks when Debian drops
+# that version (Terminal-Bench environment_hygiene). The image Created timestamp is
+# recorded in each trial's meta.json.
 FROM docker.io/library/debian@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
-# TODO(pilot): pin apt package versions or use snapshot.debian.org for byte-identical rebuilds.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       python3 tini procps lsof psmisc less \

@@ -19,11 +19,12 @@ def _truncate(s):
 def run_trial(task, model_cfg, run_id, trial, seed):
     label = model_cfg["label"]
     td = storage.TrialDir.for_trial(run_id, task.id, label, trial)
-    lim = task.meta["agent"]
+    lim = task.limits
     meta = {"harness_version": __version__, "task": task.id, "model_label": label,
             "provider": model_cfg["provider"], "model_id": model_cfg["model"],
             "temperature": model_cfg.get("temperature"), "max_tokens": model_cfg.get("max_tokens", 8192),
             "trial": trial, "seed": seed, "image": task.image, "image_id": env.image_id(task),
+            "image_created": env.image_created(task),
             "limits": lim, "started": storage.utc_now()}
     c = env.Container(task, seed)
     steps, usage, stop, error = 0, {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}, None, None
