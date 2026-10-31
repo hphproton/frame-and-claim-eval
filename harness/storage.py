@@ -17,7 +17,9 @@ class TrialDir:
     def __init__(self, base):
         self.path = pathlib.Path(base)
         self.path.mkdir(parents=True, exist_ok=True)
-        self._t = open(self.path / "transcript.jsonl", "a")
+        # Replace, do not append. A second run into the same trial directory must not
+        # leave the previous tool events in front of the new ones (replay re-executes every tool event).
+        self._t = open(self.path / "transcript.jsonl", "w")
 
     @classmethod
     def for_trial(cls, run_id, task_id, model_label, trial):

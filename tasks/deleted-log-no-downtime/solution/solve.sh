@@ -30,6 +30,7 @@ json.dump({
     "free_mib_on_data": float(free),
     "log_path_live": live == "true",
     "all_requirements_met": ok == "true",
+    "diagnostic_commands": ["pgrep -x orders-api"],
 }, open("/output/handoff.json", "w"), indent=2)
 PY
 cat /output/handoff.json
