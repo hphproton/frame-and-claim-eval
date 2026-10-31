@@ -1,0 +1,37 @@
+#!/bin/bash
+# ledgerctl: minimal init-style wrapper for ledger-sync instances.
+set -u
+cmd=${1:-}; inst=${2:-}
+if [ -z "$cmd" ] || [ -z "$inst" ]; then echo "usage: ledgerctl {start|stop|restart|status} <instance>" >&2; exit 2; fi
+conf=/etc/ledger-sync/$inst.conf
+pidf=/var/lib/ledger-sync/run/$inst.pid
+log=/var/log/ledger-sync/$inst.log
+[ -f "$conf" ] || { echo "ledgerctl: no config $conf" >&2; exit 2; }
+
+do_start() {
+  if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then
+    echo "$(date -u +%Y-%m-%dT%H:%M:%S) ledgerctl: $inst already running (pid $(cat "$pidf")), not starting" | tee -a "$log" >&2
+    return 1
+  fi
+  setsid nohup /usr/local/bin/ledger-sync --instance "$inst" --config "$conf" >>"$log" 2>&1 </dev/null &
+  echo "$!" > "$pidf"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%S) ledgerctl: started $inst (pid $!)" | tee -a "$log"
+}
+do_stop() {
+  if [ -f "$pidf" ]; then
+    kill "$(cat "$pidf")" 2>/dev/null
+    rm -f "$pidf"
+    echo "$(date -u +%Y-%m-%dT%H:%M:%S) ledgerctl: stopped $inst" | tee -a "$log"
+  else
+    echo "ledgerctl: $inst has no pidfile" >&2
+  fi
+}
+case "$cmd" in
+  start) do_start ;;
+  stop) do_stop ;;
+  restart) do_stop; sleep 1; do_start ;;
+  status)
+    if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then echo "$inst: running (pid $(cat "$pidf"))"
+    else echo "$inst: stopped"; exit 3; fi ;;
+  *) echo "usage: ledgerctl {start|stop|restart|status} <instance>" >&2; exit 2 ;;
+esac
