@@ -195,7 +195,18 @@ def aggregate(trials):
             continue
         excluded_rows.append({"task": task, "model": model, **{s: int(counts.get(s, 0)) for s in EXCLUDED_STOPS},
                               "other": int(sum(v for k, v in counts.items() if k not in EXCLUDED_STOPS))})
-    return {"rows": rows, "models": models, "paired": paired, "excluded": excluded_rows}
+    json_failures = []
+    for _path, verdict, meta in trials:
+        if "terminus_json_format_failures" not in meta:
+            continue
+        json_failures.append({
+            "task": (verdict or {}).get("task") or meta.get("task") or "?",
+            "model": meta.get("model_label") or "?",
+            "trial": meta.get("trial"),
+            "failures": int(meta.get("terminus_json_format_failures") or 0),
+        })
+    return {"rows": rows, "models": models, "paired": paired, "excluded": excluded_rows,
+            "terminus_json_format_failures": json_failures}
 
 
 def _cell(row, key):
@@ -255,6 +266,21 @@ def write(summary, out_dir, title):
             )
     else:
         lines.append("| — | — | 0 | 0 | 0 | 0 |")
+    lines += ["", "## Terminus JSON-format failures (not task failures)", "",
+              "A Terminus 2 response that is not valid command JSON is counted here.",
+              "It is not an excluded stop, and it is not folded into the reward.",
+              "Trials recorded before the Terminus spike have no counter and are omitted.",
+              "",
+              "| task | model | trial | failures |",
+              "|---|---|---|---|"]
+    failures = summary.get("terminus_json_format_failures") or []
+    if failures:
+        for row in failures:
+            lines.append(
+                f"| {row['task']} | {row['model']} | {row['trial']} | {row['failures']} |"
+            )
+    else:
+        lines.append("| — | — | — | 0 |")
     text = "\n".join(lines) + "\n"
     (out_dir / "summary.md").write_text(text)
     return text

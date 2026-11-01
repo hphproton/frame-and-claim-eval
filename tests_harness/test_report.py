@@ -78,6 +78,22 @@ def test_paired():
 def test_single_task_se_is_blank():
     summary = report.aggregate([trial("only", "m", 1, 1)])
     assert summary["models"][0]["se_reward"] is None
+    assert summary["terminus_json_format_failures"] == []
+
+
+def test_json_format_counter_is_separate():
+    path, verdict, meta = trial("a", "m", 1, 1)
+    meta["terminus_json_format_failures"] = 2
+    meta["trial"] = 1
+    summary = report.aggregate([(path, verdict, meta)])
+    assert summary["rows"][0]["n"] == 1
+    assert summary["rows"][0]["n_excluded"] == 0
+    assert summary["terminus_json_format_failures"] == [
+        {"task": "a", "model": "m", "trial": 1, "failures": 2}
+    ]
+    text = report.write(summary, pathlib.Path("/tmp/m1e-report-json"), "unit")
+    assert "Terminus JSON-format failures (not task failures)" in text
+    assert "not an excluded stop" in text
 
 
 if __name__ == "__main__":
@@ -85,4 +101,5 @@ if __name__ == "__main__":
     test_exclusion_and_cost()
     test_paired()
     test_single_task_se_is_blank()
+    test_json_format_counter_is_separate()
     print("report checks: OK")
