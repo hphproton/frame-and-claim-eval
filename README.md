@@ -290,7 +290,7 @@ The submission zip is the git tree, not a virtualenv and not a container image. 
 git archive --format=zip --prefix=micro1-frame-and-claim-eval/ -o /tmp/micro1-frame-and-claim-eval.zip HEAD
 ```
 
-`scripts/measure_submission_zip.sh` prints that size and deletes the temp file. The archive includes tasks, the harness, `runs/`, and `results/`. It excludes `.git`, gitignored files (`.venv/`, `__pycache__/`, `*.pyc`, `.env`), and anything never committed (images, caches, wheels). The budget is 50 MB. Measured with that command on 2026-11-01, the archive of this tree is 1029459 bytes. `git archive` of a commit appends the 40-character commit id as a zip comment, so this count is the archived files plus that comment.
+`scripts/measure_submission_zip.sh` prints that size and deletes the temp file. The archive includes tasks, the harness, `runs/`, and `results/`. It excludes `.git`, gitignored files (`.venv/`, `__pycache__/`, `*.pyc`, `.env`), and anything never committed (images, caches, wheels). The budget is 50 MB. Measured with that command on 2026-11-01, the archive of this tree is 1379195 bytes. `git archive` of a commit appends the 40-character commit id as a zip comment, so this count is the archived files plus that comment.
 
 `make replay` is the keyless execution check. For each saved trial under `runs/` it rebuilds the image,
 starts a new container with that trial's `TASK_SEED`, runs every tool command from `transcript.jsonl`
