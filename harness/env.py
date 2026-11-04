@@ -97,6 +97,12 @@ class Container:
         h = task.harness
         self._wait_ready(h["ready_file"], int(h.get("ready_timeout_sec", 90)))
 
+    def host_pid(self):
+        r = _run(["inspect", "-f", "{{.State.Pid}}", self.name])
+        if r.returncode != 0 or not r.stdout.strip().isdigit():
+            raise RuntimeError(f"no host pid for {self.name}: {r.stderr}")
+        return int(r.stdout.strip())
+
     def _wait_ready(self, path, timeout):
         t_end = time.time() + timeout
         while time.time() < t_end:
@@ -122,19 +128,19 @@ class Container:
                            capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout, r.stderr
 
-    def python_script(self, path, timeout=120):
-        rc, out, err = self.pipe(["python3", "-"], pathlib.Path(path).read_text(), timeout)
-        if rc != 0:
-            raise RuntimeError(f"{path} failed in {self.name}: {err[-3000:]}")
-        return out
-
     def read_file(self, path):
-        r = _run(["exec", self.name, "cat", path])
-        return r.stdout if r.returncode == 0 else None
+        from . import host_observe
+        r = host_observe.privileged(["read", str(self.host_pid()), path])
+        if r.returncode != 0:
+            return None
+        return r.stdout.decode(errors="replace")
 
     def write_file(self, path, text):
-        rc, _, err = self.pipe(["sh", "-c", f"mkdir -p \"$(dirname '{path}')\" && cat > '{path}'"], text)
-        if rc != 0:
+        from . import host_observe
+        data = text.encode() if isinstance(text, str) else text
+        r = host_observe.privileged(["write", str(self.host_pid()), path], input_bytes=data)
+        if r.returncode != 0:
+            err = (r.stderr or b"").decode(errors="replace")
             raise RuntimeError(err)
 
     def remove(self):
