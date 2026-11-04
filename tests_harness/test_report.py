@@ -122,6 +122,23 @@ def test_json_format_counter_is_separate():
     assert "not an excluded stop" in text
 
 
+def test_autocorrect_is_not_a_hard_failure():
+    path, verdict, meta = trial("a", "m", 0, 0)
+    meta["terminus_json_format_failures"] = 1
+    meta["terminus_json_autocorrected"] = 2
+    meta["trial"] = 1
+    summary = report.aggregate([(path, verdict, meta)])
+    assert summary["terminus_json_format_failures"][0]["failures"] == 1
+    assert summary["terminus_json_autocorrected"] == [
+        {"task": "a", "model": "m", "trial": 1, "autocorrected": 2}
+    ]
+    assert summary["rows"][0]["reward"]["k"] == 0
+    text = report.write(summary, pathlib.Path("/tmp/m1e-report-autocorrect"), "unit")
+    assert "Terminus JSON auto-corrections (not task failures)" in text
+    assert "| a | m | 1 | 1 |" in text
+    assert "| a | m | 1 | 2 |" in text
+
+
 if __name__ == "__main__":
     test_pass_hat_and_at()
     test_exclusion_and_cost()
@@ -129,4 +146,5 @@ if __name__ == "__main__":
     test_single_task_se_is_blank()
     test_stall_scores_zero_and_coverage()
     test_json_format_counter_is_separate()
+    test_autocorrect_is_not_a_hard_failure()
     print("report checks: OK")
