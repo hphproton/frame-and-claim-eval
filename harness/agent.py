@@ -21,7 +21,7 @@ OUT_LIMIT = 8192
 # Provider HTTP retries happen inside providers._post. This is a second retry of the whole step
 # after those are exhausted. Still-failing steps are stop_reason=api_error and are not model failures.
 API_ATTEMPTS = 3
-EXCLUDED_STOPS = {"api_error", "wall_clock", "infra_error"}
+EXCLUDED_STOPS = {"api_error", "infra_error"}
 
 
 def _truncate(s):
