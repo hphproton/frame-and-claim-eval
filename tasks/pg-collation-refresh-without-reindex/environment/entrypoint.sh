@@ -7,6 +7,7 @@ exec >>/var/log/setup.log 2>&1
 set -eu
 PG=/usr/lib/postgresql/15/bin
 D=/var/lib/postgresql/app
+python3 /opt/setup/seed_catalog.py
 /opt/setup/write_locale.sh swap
 if ! su -s /bin/bash postgres -c "$PG/pg_ctl -D $D status" >/dev/null 2>&1; then
   su -s /bin/bash postgres -c "$PG/pg_ctl -D $D -l /tmp/pg.log start"
