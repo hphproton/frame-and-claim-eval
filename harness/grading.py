@@ -48,7 +48,15 @@ def transcript_commands(path):
             continue
         ev = json.loads(line)
         if ev.get("type") == "tool" and isinstance(ev.get("command"), str):
-            cmds.append(ev["command"])
+            if isinstance(ev.get("executed"), list):
+                cmds.append({
+                    "command": ev["command"],
+                    "exit_code": ev.get("exit_code"),
+                    "output": ev.get("output") or "",
+                    "executed": ev["executed"],
+                })
+            else:
+                cmds.append(ev["command"])
     return cmds
 
 

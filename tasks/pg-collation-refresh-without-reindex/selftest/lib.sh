@@ -3,7 +3,7 @@ set -u
 PG=/usr/lib/postgresql/15/bin/psql
 mkdir -p /output /tmp
 printf '%s\n' "SELECT datcollversion FROM pg_database WHERE datname = 'app';" > /tmp/probe-datcoll.sql
-su -s /bin/bash postgres -c "$PG -d postgres -Atf /tmp/probe-datcoll.sql" >/tmp/probe-datcoll.out || true
+su -s /bin/bash postgres -c "/usr/lib/postgresql/15/bin/psql -d postgres -Atf /tmp/probe-datcoll.sql" >/tmp/probe-datcoll.out || true
 python3 - << 'PY'
 import hashlib, json, subprocess
 PG = "/usr/lib/postgresql/15/bin/psql"
@@ -159,7 +159,7 @@ json.dump({
     "database_reinitialized": not sys_same,
     "postmaster_restarted": not same_pm,
     "all_requirements_met": met,
-    "diagnostic_commands": ["SELECT datcollversion FROM pg_database WHERE datname = 'app'"],
+    "diagnostic_commands": ["su -s /bin/bash postgres -c \"/usr/lib/postgresql/15/bin/psql -d postgres -Atf /tmp/probe-datcoll.sql\""],
 }, open("/output/handoff.json", "w"), indent=2)
 open("/output/handoff.json", "a").write("\n")
 PY
