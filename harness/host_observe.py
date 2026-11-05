@@ -249,13 +249,40 @@ def health_reporter():
 
 def health_ready():
     def order_ok(text):
-        names = []
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
+        # Same line breaks as ``for line in open(path)``, which is how
+        # supervise reads the file. splitlines() also cuts on a vertical tab.
+        rows = []
+        buf = []
+        i = 0
+        s = text or ""
+        n = len(s)
+        while i < n:
+            ch = s[i]
+            if ch == "\n" or ch == "\r":
+                line = "".join(buf).strip()
+                buf = []
+                if line and not line.startswith("#"):
+                    parts = line.split()
+                    if len(parts) != 2:
+                        return False
+                    rows.append((parts[0], parts[1]))
+                i += 2 if ch == "\r" and i + 1 < n and s[i + 1] == "\n" else 1
                 continue
-            names.append(line.split()[0])
-        return "vault" in names and "payd" in names and names.index("vault") < names.index("payd")
+            buf.append(ch)
+            i += 1
+        if buf:
+            line = "".join(buf).strip()
+            if line and not line.startswith("#"):
+                parts = line.split()
+                if len(parts) != 2:
+                    return False
+                rows.append((parts[0], parts[1]))
+        names = [name for name, _path in rows]
+        if "vault" not in names or "payd" not in names or names.index("vault") > names.index("payd"):
+            return False
+        vaults = [path for name, path in rows if name == "vault"]
+        payds = [path for name, path in rows if name == "payd"]
+        return vaults == ["/opt/ready/vault"] and payds == ["/opt/ready/payd"]
 
     try:
         order = open("/etc/ready/order.conf").read()
