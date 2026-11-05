@@ -104,7 +104,8 @@ def sha256(path):
 
 
 def sockstat(path):
-    st = os.stat(path)
+    """The directory entry itself. os.stat would follow a symlink onto another socket."""
+    st = os.lstat(path)
     return {"mode": stat.S_IMODE(st.st_mode), "uid": st.st_uid, "gid": st.st_gid, "is_sock": stat.S_ISSOCK(st.st_mode)}
 
 
@@ -153,8 +154,19 @@ def _held_inodes(pid):
 
 
 def queue_state(path, procs):
-    """The one listening inode held by the real qbroker, not a namesake's socket."""
+    """The one listening inode held by the real qbroker, not a namesake's socket.
+
+    A symlink at the path is not that socket. The kernel can still show the
+    old bind name for an unlinked listener, so a path that is not a socket
+    does not get that inode.
+    """
     info = sockstat(path)
+    if not info["is_sock"]:
+        info["listen"] = None
+        info["kern"] = None
+        info["held"] = False
+        info["holder"] = None
+        return info
     listeners = _listen_inodes(path)
     holder = None
     chosen = None
