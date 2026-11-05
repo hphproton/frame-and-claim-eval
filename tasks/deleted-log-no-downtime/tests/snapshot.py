@@ -5,17 +5,30 @@ import hashlib, json, os, subprocess
 
 SELF = os.getpid()
 
+def _bytes(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError:
+        return b""
+
+
 def proc_info(pid):
     try:
-        with open(f"/proc/{pid}/stat") as f:
-            stat = f.read()
+        stat = _bytes(f"/proc/{pid}/stat").decode("latin-1")
         rest = stat[stat.rindex(")") + 2:].split()
-        with open(f"/proc/{pid}/comm") as f:
-            comm = f.read().strip()
-        with open(f"/proc/{pid}/cmdline", "rb") as f:
-            cmdline = [a.decode(errors="replace") for a in f.read().split(b"\0") if a]
+        comm = _bytes(f"/proc/{pid}/comm").decode("latin-1").strip()
+        raw = _bytes(f"/proc/{pid}/cmdline")
+        cmdline = [part.decode(errors="replace") for part in raw.split(b"\0") if part]
+        argv = [part.decode("latin-1") for part in raw.split(b"\0") if part]
+        cgroup = _bytes(f"/proc/{pid}/cgroup").decode("latin-1")
+        try:
+            exe_inode = os.stat(f"/proc/{pid}/exe").st_ino
+        except OSError:
+            exe_inode = None
         return {"pid": pid, "comm": comm, "state": rest[0], "ppid": int(rest[1]),
-                "starttime": int(rest[19]), "cmdline": cmdline}
+                "starttime": int(rest[19]), "cmdline": cmdline, "argv": argv,
+                "exe_inode": exe_inode, "cgroup": cgroup}
     except (OSError, ValueError, IndexError):
         return None
 

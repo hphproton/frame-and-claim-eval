@@ -57,14 +57,27 @@ def _frame_manifest(roots):
     return out
 
 
+def _bytes(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError:
+        return b""
+
+
 def proc_info(pid):
     try:
-        with open(f"/proc/{pid}/stat") as f:
-            text = f.read()
+        text = _bytes(f"/proc/{pid}/stat").decode("latin-1")
         rest = text[text.rindex(")") + 2:].split()
-        with open(f"/proc/{pid}/comm") as f:
-            comm = f.read().strip()
-        return {"pid": pid, "comm": comm, "state": rest[0], "ppid": int(rest[1]), "starttime": int(rest[19])}
+        comm = _bytes(f"/proc/{pid}/comm").decode("latin-1").strip()
+        argv = [part.decode("latin-1") for part in _bytes(f"/proc/{pid}/cmdline").split(b"\0") if part]
+        cgroup = _bytes(f"/proc/{pid}/cgroup").decode("latin-1")
+        try:
+            exe_inode = os.stat(f"/proc/{pid}/exe").st_ino
+        except OSError:
+            exe_inode = None
+        return {"pid": pid, "comm": comm, "state": rest[0], "ppid": int(rest[1]),
+                "starttime": int(rest[19]), "argv": argv, "exe_inode": exe_inode, "cgroup": cgroup}
     except (OSError, ValueError, IndexError):
         return None
 
@@ -92,10 +105,8 @@ def one(procs, comm):
     return hits[0] if len(hits) == 1 else None
 
 def read_text(path):
-    try:
-        return open(path).read()
-    except OSError:
-        return ""
+    """Latin-1 keeps every byte, so a later compare is not a replaced-character compare."""
+    return _bytes(path).decode("latin-1")
 
 
 handoff_raw, handoff_err = None, None
