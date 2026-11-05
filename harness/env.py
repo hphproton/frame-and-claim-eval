@@ -1,6 +1,6 @@
 """Container lifecycle for one trial (Docker or Podman CLI). No pass/fail logic here.
 
-The official runner starts the task from environment/docker-compose.yaml (tmpfs, network)
+The host runner starts the task from environment/docker-compose.yaml (tmpfs, network)
 after building environment/Dockerfile. Harbor-only fields stay in task.toml. Knobs Harbor
 does not define (step cap, command timeout, ready file) live in harness.toml.
 """
@@ -88,7 +88,7 @@ def _strip_canary(text):
     """Drop leading canary comment lines, matching Harbor's instruction loader.
 
     The canary stays in the file on disk (contamination marker). It is not part of
-    the prompt the official runner sends to the model.
+    the prompt the host runner sends to the model.
     """
     import re
     line_re = re.compile(r"^(<!--.*canary.*-->|#.*canary.*)$", re.IGNORECASE)

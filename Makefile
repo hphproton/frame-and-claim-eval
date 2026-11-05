@@ -11,7 +11,7 @@ export
 
 .PHONY: help reproduce selftest run controls test-harness clean-images replay setup terminus-spike
 help:
-	@echo "make setup       create .venv and install pinned Harbor (network; not needed for keyless grading)"
+	@echo "make setup       create .venv and install pinned Harbor (network; not needed for keyless grading; Ubuntu 24.04 needs python3.12-venv)"
 	@echo "make reproduce   regrade every saved trial offline and rebuild tables (no Docker, no keys, no Harbor)"
 	@echo "make replay      rebuild each container and re-run saved tool commands (Docker, no keys, no Harbor)"
 	@echo "make selftest    run grader self-tests in containers (Docker/Podman, no keys, no Harbor)"

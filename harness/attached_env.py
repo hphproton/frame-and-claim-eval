@@ -1,4 +1,4 @@
-"""Docker-exec environment for a container the official runner already owns.
+"""Docker-exec environment for a container the host runner already owns.
 
 Terminus 2 calls `environment.exec` and reads `default_user` and `session_id`.
 This object does not subclass Harbor's environment, and it does not import
