@@ -131,12 +131,12 @@ def read_text(path):
 def slots():
     rows = []
     for line in lines("postgres", """
-SELECT slot_name || '|' || slot_type || '|' || active::text || '|' ||
-       coalesce(restart_lsn::text, '') || '|' ||
-       coalesce(pg_catalog.pg_walfile_name(restart_lsn), '') || '|' ||
+SELECT slot_name::text, slot_type::text, active::text,
+       coalesce(restart_lsn::text, ''),
+       coalesce(pg_catalog.pg_walfile_name(restart_lsn), ''),
        coalesce(wal_status, '')
 FROM pg_catalog.pg_replication_slots
-ORDER BY slot_name
+ORDER BY slot_name::text
 """):
         parts = line.split("|")
         if len(parts) != 6 or not SLOT_NAME.match(parts[0]):

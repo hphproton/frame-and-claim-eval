@@ -192,7 +192,7 @@ def observe():
             protected[path] = None
     row_line = one_line(
         "app",
-        "SELECT coalesce(md5(string_agg(id::text || ':' || label || ':' || code, ',' ORDER BY id)), ''), "
+        "SELECT coalesce(md5(string_agg(pg_catalog.concat_ws(':', id::text, label, code), ',' ORDER BY id)), ''), "
         "count(*)::text FROM catalog;",
     )
     row_hash, row_count = None, None
@@ -202,13 +202,13 @@ def observe():
             row_count = int(count_text)
     table = one_line(
         "app",
-        "SELECT c.oid::text || ' ' || c.relfilenode::text FROM pg_catalog.pg_class c "
+        "SELECT c.oid::text, c.relfilenode::text FROM pg_catalog.pg_class c "
         "JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace "
         "WHERE n.nspname = 'public' AND c.relname = 'catalog';",
     )
     table_oid = table_relfilenode = None
-    if table and " " in table:
-        table_oid, table_relfilenode = table.split(" ", 1)
+    if table and "|" in table:
+        table_oid, table_relfilenode = table.split("|", 1)
     indexes = text_indexes()
     return {
         "processes": processes(),
