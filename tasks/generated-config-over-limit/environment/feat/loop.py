@@ -8,7 +8,18 @@ import os, random, signal, subprocess, sys, time
 
 sys.dont_write_bytecode = True
 signal.signal(signal.SIGHUP, signal.SIG_IGN)
-seed = int(os.environ.get("TASK_SEED") or "0")
+def _loop_seed():
+    """Same file setup mounts. The entrypoint deletes it after this process has read it."""
+    path = "/run/task-seed/seed"
+    try:
+        raw = open(path).read().strip()
+    except OSError:
+        raw = ""
+    if raw:
+        return int(raw)
+    return int(os.environ.get("TASK_SEED") or "0")
+
+seed = _loop_seed()
 rng = random.Random(seed)
 os.makedirs("/run", exist_ok=True)
 open("/run/feat-loop.pid", "w").write(str(os.getpid()))

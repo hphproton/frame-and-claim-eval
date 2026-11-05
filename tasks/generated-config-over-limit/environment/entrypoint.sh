@@ -5,6 +5,7 @@ exec >>/var/log/setup.log 2>&1
 set -eu
 export PYTHONDONTWRITEBYTECODE=1
 python3 /opt/feat/bootstrap.py
+rm -f /run/task-seed/seed
 mkdir -p /output
 touch /run/.setup-complete
 exec sleep infinity
