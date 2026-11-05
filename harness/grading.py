@@ -4,7 +4,8 @@ snapshot.py and collect.py run on the host. They see the container through
 harness/host_observe.py and do not execute a binary from the task image.
 The feature publisher is the exception: its Python source runs in a child that
 has joined the container cgroup, dropped to the container's capability set, and
-installed a seccomp filter.
+installed a seccomp filter. Container paths are opened from the container root
+with openat2, so a symlink cannot redirect that open onto a host file.
 """
 import importlib.util, json, pathlib
 
