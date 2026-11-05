@@ -58,7 +58,7 @@ def with_manifest(baseline, post, manifest_before, manifest_after, task):
 def test_copies_match():
     canon = (ROOT / "harness" / "frame_manifest.py").read_bytes()
     copies = list((ROOT / "tasks").glob("*/tests/frame_manifest.py"))
-    assert len(copies) == 9
+    assert len(copies) == 10
     for path in copies:
         assert path.read_bytes() == canon, path
     walker = (ROOT / "harness" / "frame_walk.py").read_text().strip()
@@ -72,7 +72,7 @@ def test_copies_match():
         end = text.index("\ndef ", start + 1)
         assert text[start:end].strip() == walker, path
         found += 1
-    assert found == 16
+    assert found == 18
 
 
 def test_diff_rules():
