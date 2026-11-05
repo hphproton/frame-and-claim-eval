@@ -224,7 +224,9 @@ class ScriptedTerminus(Terminus2):
         before_trace = self._read_trace()
         result = await super()._execute_commands(commands, session)
         chunk = chunk_after(before, self._read_history())
-        traced = parse_trace(chunk_after(before_trace, self._read_trace()), None, "")
+        traced = parse_trace(
+            chunk_after(before_trace, self._read_trace()), None, "", script=chunk,
+        )
         if chunk.strip():
             if not chunk.endswith("\n"):
                 chunk += "\n"

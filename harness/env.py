@@ -224,7 +224,7 @@ class Container:
             out += f"\n[command timed out after {timeout}s]"
             rc, timed = 124, True
         blob = self.read_file(EXEC_TRACE) or ""
-        self.last_executed = parse_trace(blob, rc, out)
+        self.last_executed = parse_trace(blob, rc, out, command)
         return rc, out, timed
 
     def pipe(self, argv, stdin_text, timeout=120):
@@ -239,7 +239,7 @@ class Container:
             stdout = r.stdout.decode(errors="replace")
             stderr = r.stderr.decode(errors="replace")
             blob = self.read_file(EXEC_TRACE) or ""
-            self.last_executed = parse_trace(blob, r.returncode, stdout + stderr)
+            self.last_executed = parse_trace(blob, r.returncode, stdout + stderr, stdin_text)
             return r.returncode, stdout, stderr
         self.last_executed = []
         r = subprocess.run([DOCKER, "exec", "-i", self.name, *argv], input=stdin_text,
