@@ -113,6 +113,55 @@ def _norm_ws(text):
     return " ".join((text or "").split())
 
 
+def _rstrip_stmt(text):
+    """Drop a trailing semicolon that ends a statement. Keep ``\\;``."""
+    body = (text or "").strip()
+    while body.endswith(";"):
+        slashes = 0
+        j = len(body) - 2
+        while j >= 0 and body[j] == "\\":
+            slashes += 1
+            j -= 1
+        if slashes % 2 == 1:
+            break
+        body = body[:-1].rstrip()
+    return body
+
+
+def _fold_quotes(text):
+    """Remove quote marks and a backslash that escapes the next character.
+
+    Bash xtrace prints ``'{}'`` and ``';'`` where the DEBUG trap prints ``{}``
+    and ``\\;``. The command is the same.
+    """
+    out = []
+    i = 0
+    n = len(text or "")
+    while i < n:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            out.append(text[i + 1])
+            i += 2
+            continue
+        if ch in "'\"":
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _without_time(text):
+    """The command ``time`` prefixes. DEBUG and xtrace record the inner command."""
+    body = (text or "").lstrip()
+    if body == "time" or body.startswith("time ") or body.startswith("time\t"):
+        rest = body[4:].lstrip()
+        if rest == "-p" or rest.startswith("-p ") or rest.startswith("-p\t"):
+            rest = rest[2:].lstrip()
+        return rest
+    return text or ""
+
+
 def _read_word(text, i):
     n = len(text)
     start = i
@@ -312,7 +361,7 @@ def _statements(script):
             if ch in "\n;|&":
                 command_pos = True
             i += 1
-        stmt = text[start:i].strip().rstrip(";").strip()
+        stmt = _rstrip_stmt(text[start:i])
         if stmt and not stmt.lstrip().startswith("#"):
             out.append(stmt)
     return out
@@ -335,7 +384,7 @@ def _clause_before(stmt, keyword):
             continue
         word, nxt = _read_word(stmt, i) if (ch.isalpha() or ch == "_") else ("", i)
         if word == keyword:
-            return stmt[:i].strip().rstrip(";").strip()
+            return _rstrip_stmt(stmt[:i])
         i = nxt if word else i + 1
     return stmt.strip()
 
@@ -378,7 +427,7 @@ def _simple_head(stmt, skip_words):
         i += 1
     if start is None:
         return ""
-    return stmt[start:].strip().rstrip(";").strip()
+    return _rstrip_stmt(stmt[start:])
 
 
 def _heads(stmt):
@@ -396,7 +445,7 @@ def _heads(stmt):
         raw.append(_simple_head(stmt, 0))
     found = []
     for item in raw:
-        text = _norm_ws(item).rstrip(";").strip()
+        text = _rstrip_stmt(_norm_ws(item))
         if text and text not in found:
             found.append(text)
     return found
@@ -433,11 +482,12 @@ def _trace_pieces(blob):
 def _compounds(script, ran):
     added = []
     seen = set(ran)
+    ran_norm = {_norm_cmd(item) for item in ran}
     for stmt in _statements(script or ""):
         key = _norm_ws(stmt)
         if not key or key in seen:
             continue
-        if any(head in ran for head in _heads(stmt)):
+        if any(_norm_cmd(head) in ran_norm for head in _heads(stmt)):
             added.append(stmt)
             seen.add(key)
     return added
@@ -483,14 +533,19 @@ def _evidence_noise(text):
 
 
 def _xtrace_evidence(blob):
-    """Lines bash's xtrace wrote. One or more ``+`` marks a nested level."""
+    """Lines bash's xtrace wrote. One or more ``+`` marks a nested level.
+
+    Records are NUL-separated. ``splitlines`` does not split on NUL, so a
+    line ``tail -2\\0+ ls /etc`` hid ``ls``. Split on NUL first.
+    """
     found = []
-    for line in (blob or "").splitlines():
-        if not line.startswith("+"):
-            continue
-        text = line.lstrip("+").strip()
-        if text and not _evidence_noise(text):
-            found.append(text)
+    for part in (blob or "").split("\0"):
+        for line in part.splitlines():
+            if not line.startswith("+"):
+                continue
+            text = line.lstrip("+").strip()
+            if text and not _evidence_noise(text):
+                found.append(text)
     return found
 
 
@@ -673,9 +728,10 @@ def _scan_pieces(text):
 
 
 def _norm_cmd(text):
-    """Whitespace and redirections do not make a different command."""
-    from .claim_execution import _strip_redirects
-    return _norm_ws(_strip_redirects(text or ""))
+    """Whitespace, comments, ``time``, quotes, and redirections do not make a different command."""
+    from .claim_execution import _strip_comment, _strip_redirects
+    body = _without_time(_strip_comment(text or ""))
+    return _norm_ws(_fold_quotes(_strip_redirects(body)))
 
 
 def _function_bodies(stmt):
