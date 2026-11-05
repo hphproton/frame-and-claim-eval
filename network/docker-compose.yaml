@@ -1,0 +1,48 @@
+# Internal upstreams. No route off this network.
+# 172.30.28.10 apt mirror, .11 primary, .12 replica, .53 DNS.
+name: micro1eval-upstream
+services:
+  dns:
+    build: ./dns
+    image: micro1eval/upstream-dns:latest
+    container_name: micro1eval-dns
+    restart: unless-stopped
+    networks:
+      upstream:
+        ipv4_address: 172.30.28.53
+  mirror:
+    build: ./mirror
+    image: micro1eval/upstream-mirror:latest
+    container_name: micro1eval-mirror
+    restart: unless-stopped
+    networks:
+      upstream:
+        ipv4_address: 172.30.28.10
+  primary:
+    build: ./postgres
+    image: micro1eval/upstream-postgres:latest
+    container_name: micro1eval-primary
+    restart: unless-stopped
+    environment:
+      ROLE: primary
+    networks:
+      upstream:
+        ipv4_address: 172.30.28.11
+  replica:
+    image: micro1eval/upstream-postgres:latest
+    container_name: micro1eval-replica
+    restart: unless-stopped
+    depends_on:
+      - primary
+    environment:
+      ROLE: replica
+    networks:
+      upstream:
+        ipv4_address: 172.30.28.12
+networks:
+  upstream:
+    name: micro1eval-upstream
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.28.0/24

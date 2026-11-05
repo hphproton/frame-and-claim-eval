@@ -3,8 +3,9 @@
 Terminus 2 calls `environment.exec` and reads `default_user` and `session_id`.
 This object does not subclass Harbor's environment, and it does not import
 Harbor. It does not create, build, or delete the container. The runner's
-`Container.remove` still owns the lifecycle. The container stays on
-`network_mode: none`; nothing here opens a network path into it.
+`Container.remove` still owns the lifecycle. Active task containers are
+already on the internal network `micro1eval-upstream`. Nothing here opens
+a path to the public internet.
 """
 import asyncio, subprocess
 
