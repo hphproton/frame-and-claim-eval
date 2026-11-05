@@ -49,16 +49,25 @@ def _upstream_healthy():
     return replica.returncode == 0 and mirror.returncode == 0 and dns.returncode == 0
 
 
+def block_bridge_host():
+    """Install the host-input drop for the upstream bridge. A second call changes nothing."""
+    script = ROOT / "network" / "block_bridge_host.sh"
+    result = subprocess.run(["sh", str(script)], capture_output=True, text=True)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "")[-2000:]
+        raise RuntimeError(f"bridge host block failed:\n{detail}")
+
+
 def ensure_upstream():
     """Start the shared internal network. A second call leaves it running."""
     with _UPSTREAM_LOCK:
-        if _upstream_healthy():
-            return
-        script = ROOT / "network" / "ensure.sh"
-        result = subprocess.run(["sh", str(script)], capture_output=True, text=True)
-        if result.returncode != 0 or not _upstream_healthy():
-            detail = (result.stderr or result.stdout or "")[-4000:]
-            raise RuntimeError(f"upstream not ready:\n{detail}")
+        if not _upstream_healthy():
+            script = ROOT / "network" / "ensure.sh"
+            result = subprocess.run(["sh", str(script)], capture_output=True, text=True)
+            if result.returncode != 0 or not _upstream_healthy():
+                detail = (result.stderr or result.stdout or "")[-4000:]
+                raise RuntimeError(f"upstream not ready:\n{detail}")
+        block_bridge_host()
 
 
 class Task:

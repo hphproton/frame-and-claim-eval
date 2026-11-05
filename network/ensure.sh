@@ -7,6 +7,7 @@ DOCKER=${DOCKER:-docker}
 cd "$ROOT"
 
 "$DOCKER" compose -f network/docker-compose.yaml up -d --build >/tmp/micro1eval-upstream-up.log 2>&1
+sh "$ROOT/network/block_bridge_host.sh"
 
 # This host enforces iptables-legacy. Docker wrote the same-bridge allow into the
 # other table, so container-to-container packets hit the legacy FORWARD DROP.

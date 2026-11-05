@@ -28,6 +28,17 @@ except OSError as exc:
     print("NO_INTERNET", type(exc).__name__)
 else:
     raise SystemExit("reached 1.1.1.1")
+for port in (2375, 26500, 26058, 50052):
+    g = socket.socket()
+    g.settimeout(1)
+    try:
+        g.connect(("172.30.28.1", port))
+    except OSError as exc:
+        print("NO_GATEWAY", port, type(exc).__name__)
+    else:
+        raise SystemExit(f"reached gateway:{port}")
+    finally:
+        g.close()
 PY
 rm -f /etc/apt/sources.list
 rm -rf /etc/apt/sources.list.d/*
