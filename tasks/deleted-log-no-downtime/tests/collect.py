@@ -37,16 +37,45 @@ def sha256(path):
     return h.hexdigest()
 
 def manifest(root, skip=()):
+    """Every file and directory. skip paths keep an inode and mode but no content hash."""
+    import stat as _stat
     m = {}
-    for dp, dn, fn in os.walk(root):
-        for n in fn:
-            p = os.path.join(dp, n)
-            try:
-                st = os.lstat(p)
-            except OSError:
-                continue
-            m[p] = {"size": st.st_size, "inode": st.st_ino,
-                    "sha256": None if p in skip else sha256(p)}
+
+    def rec(path):
+        try:
+            st = os.lstat(path)
+        except OSError:
+            return None
+        if _stat.S_ISREG(st.st_mode) and path not in skip:
+            digest, size = sha256(path), st.st_size
+        elif _stat.S_ISLNK(st.st_mode):
+            digest, size = hashlib.sha256(os.readlink(path).encode()).hexdigest(), None
+        elif _stat.S_ISREG(st.st_mode):
+            digest, size = None, st.st_size
+        else:
+            digest, size = None, None
+        out = {"sha256": digest, "inode": st.st_ino, "mode": _stat.S_IMODE(st.st_mode),
+               "uid": st.st_uid, "gid": st.st_gid}
+        if size is not None:
+            out["size"] = size
+        return out
+
+    if not os.path.lexists(root):
+        return m
+    top = rec(root)
+    if top:
+        m[root] = top
+    if os.path.isdir(root) and not os.path.islink(root):
+        for dp, _dn, fn in os.walk(root):
+            if dp != root:
+                item = rec(dp)
+                if item:
+                    m[dp] = item
+            for name in fn:
+                path = os.path.join(dp, name)
+                item = rec(path)
+                if item:
+                    m[path] = item
     return m
 
 def fds(pid):
