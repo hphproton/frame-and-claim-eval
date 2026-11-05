@@ -84,18 +84,16 @@ def one_comm(procs, comm):
     return hits[0] if len(hits) == 1 else None
 
 
-def read_text(path):
-    try:
-        return open(path).read()
-    except OSError:
-        return ""
-
-
 def read_bytes(path):
     try:
         return open(path, "rb").read()
     except OSError:
         return b""
+
+
+def read_text(path):
+    """Latin-1 keeps every file byte. A later compare is not a replaced-character compare."""
+    return read_bytes(path).decode("latin-1")
 
 
 def signed_by(text):
@@ -107,14 +105,22 @@ def signed_by(text):
     return ""
 
 
+def _dir_texts(directory):
+    chunks = []
+    if not os.path.isdir(directory):
+        return chunks
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name)
+        if os.path.isfile(path):
+            chunks.append(read_text(path))
+    return chunks
+
+
 def apt_text():
-    chunks = [read_text("/etc/apt/sources.list"), read_text("/etc/apt/sources.list.d/local.list")]
-    directory = "/etc/apt/apt.conf.d"
-    if os.path.isdir(directory):
-        for name in sorted(os.listdir(directory)):
-            path = os.path.join(directory, name)
-            if os.path.isfile(path):
-                chunks.append(read_text(path))
+    """Every source and apt.conf snippet. A second list file is still apt configuration."""
+    chunks = [read_text("/etc/apt/sources.list")]
+    chunks.extend(_dir_texts("/etc/apt/sources.list.d"))
+    chunks.extend(_dir_texts("/etc/apt/apt.conf.d"))
     return "\n".join(chunks)
 
 
