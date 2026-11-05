@@ -455,7 +455,15 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
             for index, command in enumerate(chunks, 1):
                 traced = traces[index - 1] if index - 1 < len(traces) else []
                 td.event("tool", id=f"executed_{index}", command=command, exit_code=None, output="", executed=traced)
-            post = grading.collect(container)
+            try:
+                post = grading.collect(container)
+            except Exception:
+                # The agent already ran. A collect failure on bytes the agent
+                # could write is reward 0, not an excluded infra_error.
+                error = traceback.format_exc()
+                (td.path / "error.txt").write_text(error)
+                print(error, flush=True)
+                post = {"collector_error": error[-2000:]}
             td.save("post.json", post)
             json_failures = _parse_error_count(trajectory)
             if agent is not None and json_failures != agent.json_format_failures:
