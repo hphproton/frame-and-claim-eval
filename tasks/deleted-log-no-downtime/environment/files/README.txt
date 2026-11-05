@@ -9,6 +9,9 @@ Signals
 -------
   SIGHUP   re-read /etc/orders-api/orders-api.conf (does NOT reopen the log)
   SIGUSR1  close and reopen the log file at log_path (use after log rotation)
+
+A regular file at log_path can still be the wrong inode. SIGUSR1 opens the path.
+Truncating the directory entry does not release a deleted inode the process still holds.
   SIGTERM  graceful shutdown (causes downtime; avoid during business hours)
 
 Storage layout on /data (64 MiB volume)
