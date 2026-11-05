@@ -324,12 +324,14 @@ def console_login():
             os.write(write_fd, path.encode() + b"\n")
             os.close(write_fd)
             os.execv("/usr/bin/ssh", [
-                "ssh", "-i", path,
+                "ssh", "-F", "/dev/null", "-i", path,
                 "-o", "BatchMode=yes",
                 "-o", "IdentitiesOnly=yes",
                 "-o", "PreferredAuthentications=publickey",
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "ForwardAgent=no",
+                "-o", "ClearAllForwardings=yes",
                 "-o", "LogLevel=ERROR",
                 "-o", "ConnectTimeout=3",
                 "-p", "22",
