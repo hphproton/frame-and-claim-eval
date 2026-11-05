@@ -153,7 +153,8 @@ free_t8 = free_bytes()
 procs = processes()
 reps = [p for p in procs if p["comm"] == "reporter"]
 try:
-    conf = open("/etc/logrotate.d/reporter").read()
+    # Latin-1 keeps the file bytes. The signal check is not a replaced-character compare.
+    conf = open("/etc/logrotate.d/reporter", "rb").read().decode("latin-1")
 except OSError:
     conf = ""
 print(json.dumps({
