@@ -78,7 +78,10 @@ try:
     conf = open("/etc/logrotate.d/reporter").read()
 except OSError:
     conf = ""
-post = "postrotate" in conf and ("USR1" in conf or "HUP" in conf)
+start = conf.find("postrotate")
+end = conf.find("endscript", start if start >= 0 else 0)
+body = conf[start:end] if start >= 0 and end >= start else ""
+post = ("USR1" in body or "HUP" in body) and not ("reporter.pid" in body and "pgrep" not in body)
 hist = {}
 if os.path.isdir("/var/log/reporter/history"):
     for dp, _dn, fn in os.walk("/var/log/reporter/history"):
