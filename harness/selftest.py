@@ -7,16 +7,20 @@ from . import env, grading, storage
 OUT = storage.ROOT / "results" / "selftest"
 
 
-def _script(task, rel):
+def _script(task, case):
+    rel = case["action"]
     text = (task.dir / rel).read_text()
     if rel.startswith("selftest/"):
         text = (task.dir / "selftest" / "lib.sh").read_text() + "\n" + text
+    extra = case.get("then")
+    if extra:
+        text += "\n" + (task.dir / extra).read_text()
     return text
 
 
 def run_case(task, case, seed):
     t0 = time.time()
-    script = _script(task, case["action"])
+    script = _script(task, case)
     c = env.Container(task, seed)
     try:
         baseline = grading.snapshot(c)
