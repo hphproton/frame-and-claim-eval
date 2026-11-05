@@ -513,6 +513,11 @@ def _host_path(pid, path):
     return f"/proc/{pid}/root" + path
 
 
+def path_exists(pid, path):
+    """True when path is visible in the container. Does not start a process there."""
+    return os.path.lexists(_host_path(pid, path))
+
+
 def read_path(pid, path):
     with open(_host_path(pid, path), "rb") as handle:
         return handle.read()
@@ -537,6 +542,8 @@ def main(argv):
     if op == "observe":
         observe(int(argv[2]), argv[3])
         return 0
+    if op == "exists":
+        return 0 if path_exists(int(argv[2]), argv[3]) else 1
     if op == "read":
         sys.stdout.buffer.write(read_path(int(argv[2]), argv[3]))
         return 0

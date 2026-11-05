@@ -108,13 +108,20 @@ class Container:
         return int(r.stdout.strip())
 
     def _wait_ready(self, path, timeout):
+        """Wait until setup's ready file exists. A docker exec would take a PID inside the container."""
+        from . import host_observe
         t_end = time.time() + timeout
         while time.time() < t_end:
-            if _run(["exec", self.name, "test", "-f", path]).returncode == 0:
+            probe = host_observe.privileged(["exists", str(self.host_pid()), path])
+            if probe.returncode == 0:
                 return
+            err = (probe.stderr or b"").decode(errors="replace").strip()
+            if err:
+                raise RuntimeError(f"{self.name}: ready probe failed\n{err[-2000:]}")
             time.sleep(0.5)
-        logs = _run(["exec", self.name, "cat", "/var/log/setup.log"]).stdout
-        raise RuntimeError(f"{self.name}: setup not ready after {timeout}s\n{logs[-3000:]}")
+        logs = host_observe.privileged(["read", str(self.host_pid()), "/var/log/setup.log"])
+        text = (logs.stdout or b"").decode(errors="replace") if logs.returncode == 0 else ""
+        raise RuntimeError(f"{self.name}: setup not ready after {timeout}s\n{text[-3000:]}")
 
     def _ensure_trace_hook(self):
         if self._trace_ready:
