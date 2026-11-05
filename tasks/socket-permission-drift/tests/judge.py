@@ -73,12 +73,19 @@ def alive(procs, ref):
 
 
 def conf_ok(text):
-    vals = []
-    for line in (text or "").splitlines():
-        line = line.strip()
-        if line.startswith("queue_mode="):
-            vals.append(line.split("=", 1)[1].strip())
-    return vals == ["0660"]
+    """qbroker applies the last queue_mode value that parsed. A bad value stops the read."""
+    last = None
+    try:
+        for line in (text or "").splitlines():
+            line = line.strip()
+            if not line.startswith("queue_mode="):
+                continue
+            raw = line.split("=", 1)[1]
+            int(raw, 8)
+            last = raw
+    except ValueError:
+        pass
+    return last == "0660"
 
 
 def mode_name(sock):
