@@ -125,7 +125,7 @@ def prove_live():
     subprocess.run(["docker", "rm", "-f", name], capture_output=True)
     started = subprocess.run(
         ["docker", "run", "-d", "--name", name, "--entrypoint", "sleep",
-         "micro1eval/cron-clobbers-config", "120"],
+         "micro1eval/deleted-log-no-downtime", "120"],
         capture_output=True, text=True)
     if started.returncode != 0:
         raise SystemExit(started.stderr)

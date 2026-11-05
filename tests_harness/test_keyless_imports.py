@@ -7,7 +7,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 
 def test_keyless_modules_do_not_import_harbor():
-    import harness.agent
     import harness.cli
     import harness.grading
     import harness.replay

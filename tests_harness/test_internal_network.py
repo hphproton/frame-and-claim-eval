@@ -7,7 +7,7 @@ import importlib.util, pathlib, struct, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from harness.terminus_pin import LEGACY_TASK_IDS, active_task_ids
+from harness.terminus_pin import active_task_ids
 
 spec = importlib.util.spec_from_file_location("upstream_dns", ROOT / "network" / "dns" / "dns.py")
 dns = importlib.util.module_from_spec(spec)
@@ -44,6 +44,7 @@ assert "name: micro1eval-upstream" in compose
 
 ids = sorted(p.name for p in (ROOT / "tasks").iterdir() if (p / "task.toml").exists())
 active = active_task_ids(ids)
+assert active == ids, active
 assert len(active) == 9, active
 for task_id in active:
     text = (ROOT / "tasks" / task_id / "environment" / "docker-compose.yaml").read_text()
@@ -52,9 +53,4 @@ for task_id in active:
     assert "network_mode:" not in text, task_id
     toml = (ROOT / "tasks" / task_id / "task.toml").read_text()
     assert 'network_mode = "no-network"' in toml, task_id
-for task_id in LEGACY_TASK_IDS:
-    text = (ROOT / "tasks" / task_id / "environment" / "docker-compose.yaml").read_text()
-    assert "network_mode: none" in text, task_id
-    assert "micro1eval-upstream" not in text, task_id
-
 print("internal network checks: OK")
