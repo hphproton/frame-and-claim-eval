@@ -18,7 +18,13 @@ def log(msg):
 
 
 def consumers(exclude):
+    """Other Python processes started with this script.
+
+    A shell whose command text merely mentions the path is not a consumer.
+    Replay runs the repair with bash -lc, so that text is one argument.
+    """
     found = []
+    script = "/opt/feat/consume.py"
     for name in os.listdir("/proc"):
         if not name.isdigit():
             continue
@@ -26,11 +32,13 @@ def consumers(exclude):
         if pid == exclude:
             continue
         try:
-            cmd = open(f"/proc/{pid}/cmdline", "rb").read().replace(b"\0", b" ").decode(errors="replace")
+            argv = [part.decode(errors="replace") for part in open(f"/proc/{pid}/cmdline", "rb").read().split(b"\0") if part]
             state = open(f"/proc/{pid}/stat").read().split(")")[1].split()[0]
         except OSError:
             continue
-        if "/opt/feat/consume.py" in cmd and state not in ("Z", "T"):
+        if state in ("Z", "T") or not argv:
+            continue
+        if os.path.basename(argv[0]).startswith("python") and script in argv[1:]:
             found.append(pid)
     return found
 
