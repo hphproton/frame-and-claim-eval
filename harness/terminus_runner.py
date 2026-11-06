@@ -15,7 +15,7 @@ from .command_budget import CommandBudget
 from .executed_commands import ARM, HISTFILE, HOOK, SESSION_TRACE, TRACE_HOOK_PATH, chunk_after, parse_trace
 from .terminus_pin import (
     CANARY_GUID, HARBOR_LICENSE, HARBOR_VERSION, SPIKE_TASK,
-    TERMINUS_AGENT_VERSION, TERMINUS_MAX_TOKENS, active_task_ids, litellm_model_name, trial_stop,
+    TERMINUS_AGENT_VERSION, TERMINUS_MAX_TOKENS, active_task_ids, litellm_model_name, model_never_ran, trial_stop,
 )
 from .trajectory_counts import apply_trajectory_counts
 
@@ -304,6 +304,16 @@ def _persistence(trajectory):
     return "", ""
 
 
+def _agent_turn_completed(trajectory):
+    """True when the trajectory has a model step, not only the user prompt."""
+    if not isinstance(trajectory, dict):
+        return False
+    for step in trajectory.get("steps") or []:
+        if step.get("source") == "agent":
+            return True
+    return False
+
+
 def _initial_prompt(trajectory):
     steps = trajectory.get("steps") or []
     if not steps or steps[0].get("source") != "user":
@@ -403,6 +413,7 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
     agent = None
     started = []
     session_alive = False
+    trajectory_read = False
     try:
         container = env.Container(task, seed)
         meta["image_id"] = env.image_id(task)
@@ -459,6 +470,7 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
             if not trajectory_path.is_file():
                 raise RuntimeError("trajectory.json missing after the agent started")
             trajectory = json.loads(trajectory_path.read_text())
+            trajectory_read = True
             prompt = _initial_prompt(trajectory)
             persistence, persistence_keys = _persistence(trajectory)
             (td.path / "persistence-excerpt.txt").write_text(persistence)
@@ -501,11 +513,19 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
     if container is not None:
         container.remove()
     graded = baseline is not None and post is not None
+    meta["llm_calls"] = len(seen_max_tokens)
+    meta["max_tokens_seen"] = list(seen_max_tokens)
+    meta["trajectory_read"] = trajectory_read
+    meta["agent_turn_completed"] = _agent_turn_completed(trajectory) if trajectory_read else None
     stop, excluded = trial_stop(bool(started), session_alive, graded)
     # wall_clock and max_steps are model outcomes. They stay graded.
     if graded and agent is not None and getattr(agent, "budget", None) is not None and agent.budget.stop:
         stop = agent.budget.stop
         excluded = False
+    elif model_never_ran({**meta, "stop_reason": stop, "error": error}):
+        # The session can still be up and a post-state can still be collected
+        # when the model loop raises before any turn. That grade is not a model result.
+        stop, excluded = "infra_error", True
     if not graded:
         meta.update({
             "finished": storage.utc_now(),
