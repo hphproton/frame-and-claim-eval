@@ -9,6 +9,21 @@ def utc_now():
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def source_sha():
+    """HEAD when this process started the command. A later commit of the output is a child of this SHA."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT, capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    if result.returncode != 0:
+        return "unknown"
+    return result.stdout.strip() or "unknown"
+
+
 def slug(s):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", s)
 

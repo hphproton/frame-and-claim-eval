@@ -87,7 +87,9 @@ def main(task_ids, workers=4, seed=None):
             print(line, flush=True)
             lines.append(line)
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "SUMMARY.txt").write_text(f"selftest run {storage.utc_now()}\n" + "\n".join(lines) + f"\nALL_OK={all_ok}\n")
+    (OUT / "SUMMARY.txt").write_text(
+        f"source_sha {storage.source_sha()}\nselftest run {storage.utc_now()}\n"
+        + "\n".join(lines) + f"\nALL_OK={all_ok}\n")
     return 0 if all_ok else 1
 
 

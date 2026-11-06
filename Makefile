@@ -30,7 +30,7 @@ selftest:
 	$(PY) -m harness.cli selftest
 
 controls:
-	$(PY) -m harness.cli run --config configs/offline-controls.toml --trials 2 --run-id controls-offline
+	.venv/bin/python -m harness.cli run --config configs/offline-controls.toml --trials 2 --run-id controls-offline
 
 run:
 	$(PY) -m harness.cli run --config $(CONFIG) --trials $(TRIALS) --tasks $(TASKS) $(if $(MODELS),--models $(MODELS)) $(if $(RUN_ID),--run-id $(RUN_ID))
@@ -39,11 +39,16 @@ clean-images:
 	-$${DOCKER:-docker} images --format '{{.Repository}}:{{.Tag}}' | grep '^micro1eval/' | xargs -r $${DOCKER:-docker} rmi
 
 test-harness:
-	@fail=0; \
+	@sha=$$(git rev-parse HEAD); \
+	mkdir -p results/test-harness; \
+	out=results/test-harness/SUMMARY.txt; \
+	echo "source_sha $$sha" > $$out; \
+	fail=0; \
 	for t in tests_harness/test_*.py; do \
-	  echo "== $$t"; \
-	  $(PY) $$t || fail=1; \
+	  echo "== $$t" | tee -a $$out; \
+	  $(PY) $$t >> $$out 2>&1 || fail=1; \
 	done; \
+	if [ $$fail -eq 0 ]; then echo TEST_HARNESS_OK | tee -a $$out; else echo TEST_HARNESS_FAIL | tee -a $$out; fi; \
 	exit $$fail
 
 setup:

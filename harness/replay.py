@@ -103,7 +103,8 @@ def main(root=None, workers=2):
             lines.append(line)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "SUMMARY.txt").write_text(
-        f"replay {storage.utc_now()} root={root}\n" + "\n".join(lines) + f"\nreplayed {len(jobs)} trials, {bad} mismatches\n")
+        f"source_sha {storage.source_sha()}\nreplay {storage.utc_now()} root={root}\n"
+        + "\n".join(lines) + f"\nreplayed {len(jobs)} trials, {bad} mismatches\n")
     print(f"replayed {len(jobs)} trials from {root}, {bad} mismatches")
     return 1 if bad else 0
 
