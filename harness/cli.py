@@ -81,6 +81,10 @@ def main(argv=None):
         help="scripted Terminus 2 on every active task (needs `make setup`; no API key)",
     )
     ts.add_argument("--run-id", default="terminus-spike")
+    sub.add_parser(
+        "live-smoke",
+        help="LiveTerminus against a local fake model (no API key; needs make setup and Docker)",
+    )
     a = p.parse_args(argv)
     if a.cmd == "run":
         return cmd_run(a)
@@ -92,6 +96,9 @@ def main(argv=None):
         # Harbor is imported only inside this command. reproduce/replay/selftest stay keyless.
         from . import terminus_runner
         return terminus_runner.main(a.run_id)
+    if a.cmd == "live-smoke":
+        from . import live_smoke
+        return live_smoke.main()
     return reproduce.main()
 
 

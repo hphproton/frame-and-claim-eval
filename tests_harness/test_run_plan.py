@@ -23,6 +23,7 @@ def test_every_task_is_on_the_live_list():
 def test_litellm_names():
     assert litellm_model_name("openrouter", "anthropic/claude-opus-5.5") == "openrouter/anthropic/claude-opus-5.5"
     assert litellm_model_name("gemini", "gemini-4-argon") == "gemini/gemini-4-argon"
+    assert litellm_model_name("openai", "live-smoke") == "openai/live-smoke"
 
 
 def test_missing_key_exits_before_terminus():
