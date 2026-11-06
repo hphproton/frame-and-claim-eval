@@ -176,8 +176,11 @@ def _dir_texts(directory):
 
 
 def apt_text():
-    """Every source and apt.conf snippet. A second list file is still apt configuration."""
-    chunks = [read_text("/etc/apt/sources.list")]
+    """Every source and apt.conf snippet. A second list file is still apt configuration.
+
+    /etc/apt/apt.conf is apt's main config. A setting there is not in apt.conf.d.
+    """
+    chunks = [read_text("/etc/apt/sources.list"), read_text("/etc/apt/apt.conf")]
     chunks.extend(_dir_texts("/etc/apt/sources.list.d"))
     chunks.extend(_dir_texts("/etc/apt/apt.conf.d"))
     return "\n".join(chunks)

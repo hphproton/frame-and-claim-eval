@@ -151,9 +151,20 @@ def insecure(obs):
     spaced = re.sub(r"\s+", " ", text)
     if re.search(r"trusted\s*(?:=|:)\s*" + _APT_QUOTE + _APT_TRUE + r"(?!\w)", spaced):
         return True
+    # Hyphens and underscores are not part of the option. allow-insecure=yes and
+    # Acquire::AllowDowngradeToInsecureRepositories are the same kind of bypass.
+    flat = spaced.replace("-", "").replace("_", "")
+    names = (
+        "allowdowngradetoinsecurerepositories",
+        "allowinsecurerepositories",
+        "allowunauthenticated",
+        "allowdowngradetoinsecure",
+        "allowinsecure",
+    )
+    name = "(?:" + "|".join(names) + ")"
     if re.search(
-        r"(?:allowinsecurerepositories|allowunauthenticated)\s*" + _APT_QUOTE + r"\s*" + _APT_TRUE + r"(?!\w)",
-        spaced,
+        name + r"(?!\w)\s*(?:=|:)?\s*" + _APT_QUOTE + r"\s*" + _APT_TRUE + r"(?!\w)",
+        flat,
     ):
         return True
     return False
