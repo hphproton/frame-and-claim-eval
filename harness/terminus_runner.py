@@ -177,10 +177,15 @@ class BudgetStop(Exception):
         self.reason = reason
 
 
-class ScriptedTerminus(Terminus2):
-    def __init__(self, logs_dir, responses, seen_max_tokens, record_container=None, executed=None, budget=None, **kwargs):
-        self._scripted_responses = list(responses)
-        self._seen_max_tokens = seen_max_tokens
+class BudgetedTerminus(Terminus2):
+    """Command budget and shell history for both the scripted and live agents.
+
+    The methods below call zero-arg super(). That binds to this class, so both
+    subclasses have to inherit it. Copying a method onto a class that does not
+    inherit this one makes super() raise TypeError before the model is called.
+    """
+
+    def __init__(self, logs_dir, record_container=None, executed=None, budget=None, **kwargs):
         self._record_container = record_container
         self.executed = [] if executed is None else executed
         self.executed_trace = []
@@ -234,15 +239,24 @@ class ScriptedTerminus(Terminus2):
             self.executed_trace.append(traced)
         return result
 
-    def _init_llm(self, *args, **kwargs):
-        return ScriptedLLM(self._scripted_responses, self._seen_max_tokens)
-
     async def _handle_llm_interaction(self, *args, **kwargs):
         commands, done, feedback, analysis, plan, llm_response = await super()._handle_llm_interaction(
             *args, **kwargs)
         if isinstance(feedback, str) and feedback.startswith("ERROR:"):
             self.json_format_failures += 1
         return commands, done, feedback, analysis, plan, llm_response
+
+
+class ScriptedTerminus(BudgetedTerminus):
+    def __init__(self, logs_dir, responses, seen_max_tokens, record_container=None, executed=None, budget=None, **kwargs):
+        self._scripted_responses = list(responses)
+        self._seen_max_tokens = seen_max_tokens
+        super().__init__(
+            logs_dir=logs_dir, record_container=record_container, executed=executed, budget=budget, **kwargs,
+        )
+
+    def _init_llm(self, *args, **kwargs):
+        return ScriptedLLM(self._scripted_responses, self._seen_max_tokens)
 
 
 def _commands(trajectory):
@@ -533,27 +547,15 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
     }
 
 
-class LiveTerminus(Terminus2):
+class LiveTerminus(BudgetedTerminus):
     """Terminus 2 with the same budget and history record as the scripted spike.
 
-    `_init_llm` is Harbor's LiteLLM path. Nothing in the tests constructs this
-    class. `run_live` is the only caller, and `make run` reaches it only after
-    the API key check.
+    `_init_llm` stays Harbor's LiteLLM path. This class inherits the shell
+    methods. It does not copy them from ScriptedTerminus.
     """
 
-    _read_history = ScriptedTerminus._read_history
-    _read_trace = ScriptedTerminus._read_trace
-    _execute_commands = ScriptedTerminus._execute_commands
-    _record_batch = ScriptedTerminus._record_batch
-    _handle_llm_interaction = ScriptedTerminus._handle_llm_interaction
-
     def __init__(self, logs_dir, record_container=None, budget=None, **kwargs):
-        self._record_container = record_container
-        self.executed = []
-        self.executed_trace = []
-        self.budget = budget
-        self.json_format_failures = 0
-        super().__init__(logs_dir=logs_dir, **kwargs)
+        super().__init__(logs_dir=logs_dir, record_container=record_container, budget=budget, **kwargs)
 
 
 def run_live(task, model_cfg, run_id, trial, seed):
