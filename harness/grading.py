@@ -35,6 +35,9 @@ def _observe(container, script, timeout):
     sshd = getattr(container, "sshd_pin", None)
     if sshd:
         args.extend(["--sshd-pin", sshd, "--ssh-image", container.task.image])
+    rotated = getattr(container, "logrotate_pin", None)
+    if rotated:
+        args.extend(["--logrotate-pin", rotated])
     result = host_observe.privileged(args, timeout=timeout)
     if result.returncode != 0:
         err = (result.stderr or b"").decode(errors="replace")
