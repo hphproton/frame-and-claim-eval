@@ -9,6 +9,10 @@ from harness.host_observe import _CLONE_NAMESPACE, _install_agent_seccomp
 
 # Flags glibc uses for a thread. None of them create a namespace.
 _THREAD_FLAGS = 0x3D0F00
+# CLONE_THREAD without CLONE_SIGHAND. The kernel rejects this with EINVAL
+# and does not create a task. A null stack plus the real thread flags can
+# create a thread that faults and kills the test.
+_CLONE_THREAD = 0x10000
 
 
 def test_thread_flags_are_not_namespace_flags():
@@ -36,7 +40,7 @@ def test_namespace_clone_is_refused():
             ns_rc, ns_err = call(56, 0x10000000 | 0x40000000, 0, 0, 0, 0)
             if ns_rc == 0:
                 os._exit(0)
-            thread_rc, thread_err = call(56, _THREAD_FLAGS, 0, 0, 0, 0)
+            thread_rc, thread_err = call(56, _CLONE_THREAD, 0, 0, 0, 0)
             if thread_rc == 0:
                 os._exit(0)
             started = {"ok": False}
@@ -67,10 +71,10 @@ def test_namespace_clone_is_refused():
     parts = dict(item.split("=", 1) for item in text.split())
     assert parts["clone3"] == f"-1:{errno.ENOSYS}", text
     assert parts["ns"] == f"-1:{errno.EPERM}", text
-    # A null stack makes the kernel reject the thread clone. EPERM would mean
-    # the filter blocked it.
-    thread_rc, thread_err = parts["thread"].split(":")
-    assert not (thread_rc == "-1" and int(thread_err) == errno.EPERM), text
+    # The kernel rejects CLONE_THREAD without CLONE_SIGHAND. EPERM would mean
+    # the filter blocked a flag set that does not create a namespace.
+    assert parts["thread"] == f"-1:{errno.EINVAL}", text
+    assert _THREAD_FLAGS & _CLONE_NAMESPACE == 0
     assert parts["pthread"] == "True", text
 
 
