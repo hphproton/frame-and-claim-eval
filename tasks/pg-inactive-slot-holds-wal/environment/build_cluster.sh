@@ -19,7 +19,7 @@ max_replication_slots = 4
 wal_keep_size = 0
 max_slot_wal_keep_size = -1
 min_wal_size = 2MB
-max_wal_size = 64MB
+max_wal_size = 8MB
 checkpoint_timeout = 60min
 unix_socket_directories = '/var/run/postgresql'
 EOF
