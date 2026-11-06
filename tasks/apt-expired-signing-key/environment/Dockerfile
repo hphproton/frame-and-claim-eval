@@ -9,12 +9,12 @@ RUN printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99force-ipv4 \
  && rm -rf /var/lib/apt/lists/* \
  && rm -f /etc/apt/sources.list \
  && rm -rf /etc/apt/sources.list.d \
- && mkdir -p /etc/apt/sources.list.d /etc/apt/keyrings /output /var/log /opt/apt
-COPY build_repo.sh entrypoint.sh /opt/setup/
+ && mkdir -p /etc/apt/sources.list.d /etc/apt/keyrings /etc/apt/trusted.gpg.d /output /var/log /opt/apt
+COPY entrypoint.sh /opt/setup/entrypoint.sh
 COPY files/aptwatch /opt/apt/aptwatch
 COPY files/README.txt /opt/apt/README.txt
 COPY files/health.sh /opt/apt/health.sh
-RUN chmod 0755 /opt/setup/build_repo.sh /opt/setup/entrypoint.sh /opt/apt/aptwatch /opt/apt/health.sh \
- && /opt/setup/build_repo.sh
 COPY setup.py /opt/setup/setup.py
+RUN chmod 0755 /opt/setup/entrypoint.sh /opt/apt/aptwatch /opt/apt/health.sh \
+ && mkdir -p /output
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/setup/entrypoint.sh"]

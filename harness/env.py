@@ -36,7 +36,9 @@ def _upstream_healthy():
         capture_output=True)
     mirror = subprocess.run(
         [DOCKER, "exec", "micro1eval-mirror", "python3", "-c",
-         "import urllib.request; urllib.request.urlopen('http://127.0.0.1/key.gpg', timeout=2).read(1)"],
+         "import urllib.request\n"
+         "urllib.request.urlopen('http://127.0.0.1/key.gpg', timeout=2).read(1)\n"
+         "urllib.request.urlopen('http://127.0.0.1/key-expired.gpg', timeout=2).read(1)\n"],
         capture_output=True)
     dns = subprocess.run(
         [DOCKER, "exec", "-i", "micro1eval-dns", "python3", "-c",
@@ -210,6 +212,7 @@ class Container:
             "/usr/bin/apt-get",
             "/usr/bin/gpgv",
             "/usr/lib/apt/methods/file",
+            "/usr/lib/apt/methods/http",
             "/usr/lib/apt/methods/gpgv",
             "/usr/lib/apt/methods/store",
             "/usr/lib/apt/methods/copy",

@@ -3,7 +3,7 @@ set -u
 printf '# retired one-line source\n' > /etc/apt/sources.list.d/local.list
 cat > /etc/apt/sources.list.d/local.sources << 'EOF'
 Types: deb
-URIs: file:/opt/repo
+URIs: http://mirror.internal/repo
 Suites: local
 Components: main
 Signed-By: /etc/apt/keyrings/repo.gpg
