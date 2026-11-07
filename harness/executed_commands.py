@@ -84,7 +84,9 @@ trace_debug() {
       return 0
       ;;
   esac
-  printf '%s\\0' "$BASH_COMMAND" >&"$TRACE_XFD" 2>/dev/null || true
+  # The number is the previous command's exit status. A reader uses it to
+  # see that && / || did not run the next command. The command text follows.
+  printf '#%s#%s\\0' "$st" "$BASH_COMMAND" >&"$TRACE_XFD" 2>/dev/null || true
   set -x
   TRACE_IN=0
   return 0
@@ -484,7 +486,19 @@ def _split_record(part):
     while index < len(lines) and _is_xtrace_line(lines[index]):
         traced.append(lines[index])
         index += 1
-    return traced, "\n".join(lines[index:])
+    command = "\n".join(lines[index:])
+    status, command = _strip_status(command)
+    return traced, command, status
+
+
+def _strip_status(command):
+    """``#<exit>#`` is the previous command's status. Older traces have none."""
+    if not command.startswith("#"):
+        return None, command
+    end = command.find("#", 1)
+    if end > 1 and command[1:end].isdigit():
+        return int(command[1:end]), command[end + 1:]
+    return None, command
 
 
 def _records(blob):
@@ -564,7 +578,7 @@ def _trace_pieces(blob):
     """DEBUG commands, then the xtrace expansion of one of those commands."""
     debug = []
     expanded = []
-    for traced, command in _records(blob):
+    for traced, command, _status in _records(blob):
         expanded.extend(_balanced_xtrace(traced))
         cmd = command.strip()
         if cmd and not _hook_noise(cmd):
@@ -646,7 +660,7 @@ def _xtrace_evidence(blob):
     NUL-separated, so a line ``tail -2\\0+ ls /etc`` still yields ``ls``.
     """
     found = []
-    for traced, _command in _records(blob):
+    for traced, _command, _status in _records(blob):
         for line in traced:
             text = line.lstrip("+").strip()
             if text and not _evidence_noise(text):
@@ -933,9 +947,13 @@ def _host_verified(commands, ran, script, blob):
 
 
 def _and_or_parts(stmt):
-    """Split on top-level && and ||. A pipe stays inside its part."""
+    """Split on top-level && and ||. A pipe stays inside its part.
+
+    Each item is (operator, text). The first operator is None.
+    """
     parts = []
     buf = []
+    op = None
     i = 0
     n = len(stmt)
     quote = None
@@ -958,7 +976,8 @@ def _and_or_parts(stmt):
             i += 2
             continue
         if stmt.startswith("&&", i) or stmt.startswith("||", i):
-            parts.append("".join(buf).strip())
+            parts.append((op, "".join(buf).strip()))
+            op = stmt[i:i + 2]
             buf = []
             i += 2
             continue
@@ -966,8 +985,8 @@ def _and_or_parts(stmt):
         i += 1
     tail = "".join(buf).strip()
     if tail:
-        parts.append(tail)
-    return [part for part in parts if part]
+        parts.append((op, tail))
+    return [item for item in parts if item[1]]
 
 
 def _has_top_pipe(text):
@@ -1017,7 +1036,7 @@ def _pipeline_nodes(script, blob, already):
     # depth-1 xtrace into one record. That record is the invocation. Separate
     # commands do not share a record, and a short-circuited pipeline has none.
     sequences = []
-    for traced, _command in _records(blob):
+    for traced, _command, _status in _records(blob):
         seq = _depth1_xtrace(traced)
         if len(seq) >= 2:
             sequences.append(seq)
@@ -1025,7 +1044,7 @@ def _pipeline_nodes(script, blob, already):
     added = []
     seen = {_norm_ws(item) for item in already}
     for stmt in _statements(script or ""):
-        for part in _and_or_parts(stmt):
+        for _op, part in _and_or_parts(stmt):
             if not _has_top_pipe(part):
                 continue
             key = _norm_ws(part)
@@ -1043,6 +1062,71 @@ def _pipeline_nodes(script, blob, already):
                     added.append(part.strip())
                     seen.add(key)
                     break
+    for part in _pipelines_in_order(script, blob, seen):
+        added.append(part)
+        seen.add(_norm_ws(part))
+    return added
+
+
+def _debug_exits(blob):
+    """DEBUG commands in order, each with its own exit status when the next record has one."""
+    raw = []
+    for _traced, command, prev in _records(blob):
+        command = command.strip()
+        if not command or _hook_noise(command):
+            continue
+        raw.append((prev, command))
+    steps = []
+    for index, (_prev, command) in enumerate(raw):
+        exit_code = raw[index + 1][0] if index + 1 < len(raw) else None
+        steps.append((exit_code, command))
+    return steps
+
+
+def _same_cmd(left, right):
+    return _norm_cmd(left) == _norm_cmd(right)
+
+
+def _pipelines_in_order(script, blob, seen):
+    """Credit a pipeline whose pieces are the next commands that actually ran.
+
+    Pipeline members write xtrace at the same time, so those lines do not
+    always share one record. The exit status on the following record says
+    whether && or || ran the next piece. A later command is not reused.
+    Traces without statuses keep the shared-record check only.
+    """
+    steps = _debug_exits(blob)
+    if not any(exit_code is not None for exit_code, _command in steps):
+        return []
+    added = []
+    index = 0
+    for stmt in _statements(script or ""):
+        prev_ok = True
+        for op, part in _and_or_parts(stmt):
+            if op == "&&" and not prev_ok:
+                continue
+            if op == "||" and prev_ok:
+                continue
+            if _has_top_pipe(part):
+                segments, _nested = _scan_pieces(part)
+                width = len(segments)
+                window = steps[index:index + width]
+                if width < 2 or len(window) < width or [_norm_cmd(seg) for seg in segments] != [_norm_cmd(cmd) for _exit, cmd in window]:
+                    prev_ok = False
+                    continue
+                index += width
+                last_exit = window[-1][0]
+                prev_ok = True if last_exit is None else last_exit == 0
+                key = _norm_ws(part)
+                if key and key not in seen:
+                    added.append(part.strip())
+                continue
+            if index >= len(steps) or not _same_cmd(part, steps[index][1]):
+                prev_ok = False
+                continue
+            exit_code = steps[index][0]
+            index += 1
+            prev_ok = True if exit_code is None else exit_code == 0
     return added
 
 

@@ -46,7 +46,7 @@ def test_unmarked_shell_does_not_trace_and_marked_shell_does():
         )
         blob = open(trace).read()
         assert marked.returncode == 0, marked.stderr
-        assert "echo marked-command" in blob.split("\0"), blob
+        assert "echo marked-command" in blob, blob
 
 
 if __name__ == "__main__":
