@@ -1,4 +1,6 @@
 set -u
+mkdir -p /etc/reporter
+printf '%s\n' follow > /etc/reporter/reopen.mode
 pgrep -x reporter >/tmp/reporter-pids.txt
 PID=$(pgrep -x reporter | head -n1)
 kill -USR1 "$PID"

@@ -1,5 +1,7 @@
 # Alternate: SIGHUP instead of SIGUSR1, and a postrotate block that uses HUP.
 set -u
+mkdir -p /etc/reporter
+printf '%s\n' follow > /etc/reporter/reopen.mode
 pgrep -x reporter >/tmp/reporter-pids.txt
 PID=$(pgrep -x reporter | head -n1)
 python3 - "$PID" <<'PY'
@@ -37,6 +39,7 @@ for fd in os.listdir(f"/proc/{pid}/fd"):
 conf = open("/etc/logrotate.d/reporter").read()
 json.dump({
     "root_cause": "logrotate_without_postrotate",
+    "second_cause": "reopen_held",
     "service_restarted": False,
     "reporter_pid": int(pid),
     "live_log_path": path,
