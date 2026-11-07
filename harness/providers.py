@@ -67,7 +67,9 @@ class OpenRouter:
         # max_tokens is never sent, including when the config set one.
         if self.temperature is not None:
             body["temperature"] = self.temperature
-        if self.reasoning_effort is not None:
+        if self.reasoning_effort == "provider_default":
+            body.pop("reasoning", None)
+        elif self.reasoning_effort is not None:
             body.update(request_fields("openrouter", self.reasoning_effort))
         strip_output_caps(body)
         r = _post(self.URL, {"Authorization": f"Bearer {self.key}", "X-Title": "micro1-eval"}, body)
@@ -119,7 +121,9 @@ class Gemini:
         # maxOutputTokens is never sent, including when the config set one.
         if self.temperature is not None:
             gen["temperature"] = self.temperature
-        if self.reasoning_effort is not None:
+        if self.reasoning_effort == "provider_default":
+            gen.pop("thinkingConfig", None)
+        elif self.reasoning_effort is not None:
             thinking = request_fields("gemini", self.reasoning_effort)
             gen = {**gen, **thinking["generationConfig"]}
         body = {"systemInstruction": {"parts": [{"text": self.system}]}, "contents": self.contents,

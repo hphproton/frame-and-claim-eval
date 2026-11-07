@@ -7,7 +7,7 @@ API key. Harbor is imported only when this module is loaded (`make terminus-spik
 
 `make reproduce` and `make replay` do not import this module.
 """
-import asyncio, contextvars, json, shutil, threading, traceback
+import asyncio, contextvars, json, pathlib, shutil, threading, traceback
 
 from . import env, grading, replay, storage
 from .attached_env import AttachedEnvironment
@@ -739,7 +739,7 @@ class LiveTerminus(BudgetedTerminus):
 
 def run_live(task, model_cfg, run_id, trial, seed):
     """One live-model trial. No output cap is sent. Reasoning effort is required."""
-    from .reasoning import request_fields, require_effort, stamp_meta
+    from .reasoning import require_effort, stamp_meta
     limits = task.limits
     effort = require_effort(model_cfg)
     model_name = litellm_model_name(model_cfg["provider"], model_cfg["model"])
@@ -759,15 +759,10 @@ def run_live(task, model_cfg, run_id, trial, seed):
         }
         if model_cfg.get("temperature") is not None:
             kwargs["temperature"] = model_cfg["temperature"]
-        llm_kwargs = dict(model_cfg.get("llm_kwargs") or {})
-        llm_kwargs.update(request_fields(model_cfg["provider"], effort))
-        for cap in ("max_tokens", "max_completion_tokens", "maxOutputTokens"):
-            llm_kwargs.pop(cap, None)
-        kwargs["llm_kwargs"] = llm_kwargs
+        from .reasoning import harbor_agent_kwargs
+        kwargs.update(harbor_agent_kwargs(model_cfg, effort))
         if model_cfg.get("api_base"):
             kwargs["api_base"] = model_cfg["api_base"]
-        if model_cfg.get("llm_kwargs"):
-            kwargs["llm_kwargs"] = dict(model_cfg["llm_kwargs"])
         if model_cfg.get("model_info"):
             kwargs["model_info"] = dict(model_cfg["model_info"])
         return LiveTerminus(**kwargs)
@@ -780,6 +775,9 @@ def run_live(task, model_cfg, run_id, trial, seed):
     )
     stamp_meta(result["meta"], effort)
     result["meta"]["max_tokens"] = None
+    (pathlib.Path(result["trial_dir"]) / "meta.json").write_text(
+        json.dumps(result["meta"], indent=2, sort_keys=True) + "\n"
+    )
     return result["verdict"], result["meta"]
 
 

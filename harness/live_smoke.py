@@ -115,6 +115,7 @@ def _model_cfg(base):
         "model": "live-smoke",
         "api_base": base,
         "llm_kwargs": {"api_key": LOCAL_KEY},
+        "reasoning_effort": "provider_default",
         "model_info": {
             "max_input_tokens": 128000,
             "input_cost_per_token": 0,
@@ -230,7 +231,11 @@ def main():
                           "logrotate keystrokes reached the transcript"))
 
     caps = [key for body in state.bodies for key in _cap_keys(body)]
+    reasoning = [body for body in state.bodies if "reasoning" in body or "reasoning_effort" in body]
     checks.append(_expect(caps == [], f"request bodies have no output-token cap (found {caps})"))
+    checks.append(_expect(reasoning == [], "provider_default sends no reasoning field"))
+    checks.append(_expect(oracle_meta.get("reasoning_effort") == "provider_default",
+                          f"meta reasoning_effort {oracle_meta.get('reasoning_effort')!r}"))
     checks.append(_expect(state.underrun == 0, f"canned responses covered every call (underrun {state.underrun})"))
     checks.append(_expect(len(oracle_bodies) > 0 and len(over_bodies) > 0, "both tasks sent at least one request"))
     ok = all(checks)

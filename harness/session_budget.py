@@ -19,6 +19,8 @@ class SessionBudget:
         self.recorded_cost = 0.0
         self.polled_cost = None
         self.trials_since_poll = 0
+        self.max_trial_cost = 0.0
+        self._spent_mark = None
         self.state = "known" if poller is None else "unknown"
 
     def note_trial_cost(self, cost):
@@ -27,26 +29,50 @@ class SessionBudget:
         except (TypeError, ValueError):
             self.state = "unknown"
 
+    def spent(self):
+        spent = self.recorded_cost
+        if self.polled_cost is not None:
+            spent = max(spent, self.polled_cost)
+        return spent
+
+    def _poll(self):
+        snap = self.poller()
+        if not isinstance(snap, dict) or "spent_usd" not in snap:
+            self.state = "unknown"
+            raise RuntimeError("budget poll returned no spent_usd")
+        self.polled_cost = float(snap["spent_usd"])
+        self.trials_since_poll = 0
+        self.state = "known"
+        return self.spent()
+
+    def poll_spent(self):
+        """Read the poller now. A missing poller returns the recorded total."""
+        if self.poller is None:
+            return self.spent()
+        return self._poll()
+
     def before_trial(self):
-        """None to continue, or a reason to stop before starting a trial."""
+        """None to continue, or a reason to stop before starting a trial.
+
+        After one trial has a cost, the next trial is refused when repeating
+        that cost would pass the limit. A trial already in flight can still
+        finish above the limit.
+        """
         if self.poller is not None and (self.polled_cost is None or self.trials_since_poll >= self.poll_every):
             try:
-                snap = self.poller()
-                if not isinstance(snap, dict) or "spent_usd" not in snap:
-                    self.state = "unknown"
-                    return "budget_unknown"
-                self.polled_cost = float(snap["spent_usd"])
-                self.trials_since_poll = 0
-                self.state = "known"
+                self._poll()
             except (TypeError, ValueError, OSError, RuntimeError):
                 self.state = "unknown"
                 return "budget_unknown"
         if self.state != "known":
             return "budget_unknown"
-        spent = self.recorded_cost
-        if self.polled_cost is not None:
-            spent = max(spent, self.polled_cost)
+        spent = self.spent()
+        if self._spent_mark is not None:
+            self.max_trial_cost = max(self.max_trial_cost, spent - self._spent_mark)
+        self._spent_mark = spent
         if spent >= self.limit_usd:
+            return "budget"
+        if self.max_trial_cost > 0 and spent + self.max_trial_cost > self.limit_usd:
             return "budget"
         return None
 

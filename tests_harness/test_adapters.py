@@ -61,4 +61,18 @@ capped_g.start("sys", "user")
 capped_g.step()
 assert "maxOutputTokens" not in sent[1][2]["generationConfig"]
 assert sent[1][2]["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "xhigh"
+sent.clear()
+plain = providers.OpenRouter("m", max_tokens=11, reasoning_effort="provider_default",
+                             extra={"reasoning": {"effort": "high"}})
+plain.start("sys", "user")
+plain.step()
+assert "reasoning" not in sent[0][2]
+assert "reasoning_effort" not in sent[0][2]
+assert "max_tokens" not in sent[0][2]
+plain_g = providers.Gemini("m", max_tokens=11, reasoning_effort="provider_default",
+                           extra={"generationConfig": {"thinkingConfig": {"thinkingLevel": "high"}}})
+plain_g.start("sys", "user")
+plain_g.step()
+assert "thinkingConfig" not in sent[1][2]["generationConfig"]
+assert "maxOutputTokens" not in sent[1][2]["generationConfig"]
 print("adapter wire-format checks: OK")

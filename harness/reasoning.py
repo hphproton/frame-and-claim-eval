@@ -1,12 +1,12 @@
-"""Per-model reasoning effort. HPH chooses high or xhigh after this run.
+"""Per-model reasoning effort.
 
-The config field is required for a live model. TODO, a missing value, or any
-other string refuses the run before a provider call. The flash pilot ran with
-the provider default and no effort field; that result is annotated, not rerun.
-This module does not send max_tokens.
+`high` and `xhigh` send the provider's reasoning field. `provider_default`
+sends no reasoning field, which is how the flash pilot ran, and the string is
+still recorded on the trial. TODO, a missing value, or any other string refuses
+the run before a provider call. This module does not send max_tokens.
 """
 
-ALLOWED = ("high", "xhigh")
+ALLOWED = ("high", "xhigh", "provider_default")
 _CAP_KEYS = ("max_tokens", "max_completion_tokens", "maxOutputTokens")
 
 
@@ -15,27 +15,49 @@ class ReasoningUnset(Exception):
 
 
 def require_effort(model_cfg):
-    """Return high or xhigh. Any other value, including TODO, refuses the run."""
+    """Return high, xhigh, or provider_default. Any other value refuses the run."""
     if model_cfg.get("provider") == "scripted":
         return None
     value = model_cfg.get("reasoning_effort")
     if value not in ALLOWED:
         raise ReasoningUnset(
-            f"reasoning_effort for {model_cfg.get('label', '?')} must be high or xhigh "
-            f"(got {value!r}). HPH sets it before a live run. No request was sent."
+            f"reasoning_effort for {model_cfg.get('label', '?')} must be high, xhigh, "
+            f"or provider_default (got {value!r}). No request was sent."
         )
     return value
 
 
 def request_fields(provider, effort):
-    """The provider payload for this effort. Output caps are not included."""
-    if effort not in ALLOWED:
-        raise ReasoningUnset(f"reasoning effort {effort!r} is not high or xhigh")
+    """The provider payload for this effort. Output caps are not included.
+
+    provider_default is an empty payload: the request body gains no reasoning field.
+    """
+    if effort == "provider_default":
+        return {}
+    if effort not in ("high", "xhigh"):
+        raise ReasoningUnset(f"reasoning effort {effort!r} is not high, xhigh, or provider_default")
     if provider == "openrouter":
         return {"reasoning": {"effort": effort}}
     if provider == "gemini":
         return {"generationConfig": {"thinkingConfig": {"thinkingLevel": effort}}}
     raise ReasoningUnset(f"no reasoning payload for provider {provider}")
+
+
+def llm_call_kwargs(model_cfg, effort):
+    """Kwargs for one live completion. provider_default removes reasoning fields."""
+    merged = dict(model_cfg.get("llm_kwargs") or {})
+    merged.update(request_fields(model_cfg.get("provider"), effort))
+    if effort == "provider_default":
+        merged.pop("reasoning", None)
+        merged.pop("reasoning_effort", None)
+        gen = merged.get("generationConfig")
+        if isinstance(gen, dict):
+            gen.pop("thinkingConfig", None)
+            if not gen:
+                merged.pop("generationConfig", None)
+    for key in _CAP_KEYS:
+        merged.pop(key, None)
+    return merged
 
 
 def strip_output_caps(body):
@@ -48,6 +70,21 @@ def strip_output_caps(body):
     if isinstance(gen, dict):
         gen.pop("maxOutputTokens", None)
     return body
+
+
+def harbor_agent_kwargs(model_cfg, effort):
+    """Arguments for Harbor's Terminus constructor.
+
+    provider_default leaves Harbor's reasoning_effort unset, so LiteLLM omits
+    the field. high and xhigh use Harbor's own argument, which LiteLLM maps
+    onto the provider request. The raw reasoning object is not also sent.
+    """
+    llm_kwargs = llm_call_kwargs(model_cfg, effort)
+    llm_kwargs.pop("reasoning", None)
+    kwargs = {"llm_kwargs": llm_kwargs}
+    if effort in ("high", "xhigh"):
+        kwargs["reasoning_effort"] = effort
+    return kwargs
 
 
 def stamp_meta(meta, effort):

@@ -3,7 +3,8 @@ import json, pathlib, subprocess, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from harness.command_budget import write_handoff
-from harness.reasoning import request_fields, stamp_meta
+from harness.openrouter_spend import session_poller
+from harness.reasoning import harbor_agent_kwargs, llm_call_kwargs, request_fields, stamp_meta
 from harness.replay import is_volatile, replay_agrees
 from harness.session_budget import SessionBudget
 from harness.watchdog import classify_hung, terminate_hung
@@ -44,6 +45,31 @@ def test_session_budget_fails_closed_and_has_no_per_trial_cap():
     open_budget.note_trial_cost(100)
     open_budget.after_trial()
     assert open_budget.before_trial() == "budget"
+    seen_cost = {"n": 0}
+
+    def growing():
+        seen_cost["n"] += 1
+        if seen_cost["n"] == 1:
+            return {"spent_usd": 0}
+        return {"spent_usd": 6}
+
+    projected = SessionBudget(10, poll_every=1, poller=growing)
+    assert projected.before_trial() is None
+    projected.after_trial()
+    assert projected.before_trial() == "budget"
+    assert projected.spent() == 6
+    state = pathlib.Path("/tmp/m1e-budget-baseline.json")
+    if state.exists():
+        state.unlink()
+    values = iter([11.0, 12.0])
+    poll = session_poller(state, 3.69, fetch=lambda: next(values))
+    assert poll()["spent_usd"] == 1.0
+    again = session_poller(state, 3.69, fetch=lambda: 14.0)
+    assert again()["spent_usd"] == 3.0
+    saved = json.loads(state.read_text())
+    assert set(saved) == {"key_usage_at_start", "limit_usd"}
+    assert saved["key_usage_at_start"] == 11.0
+    state.unlink()
 
 
 def test_watchdog_kills_a_sleep_and_does_not_call_it_success():
@@ -61,9 +87,29 @@ def test_reasoning_payload_and_meta():
     body = request_fields("openrouter", "xhigh")
     assert body == {"reasoning": {"effort": "xhigh"}}
     assert "max_tokens" not in body
-    meta = stamp_meta({}, "high")
-    assert meta["reasoning_effort"] == "high"
+    assert request_fields("openrouter", "provider_default") == {}
+    assert request_fields("gemini", "provider_default") == {}
+    meta = stamp_meta({}, "provider_default")
+    assert meta["reasoning_effort"] == "provider_default"
     assert meta["max_tokens_sent"] is False
+    kwargs = llm_call_kwargs(
+        {"provider": "openrouter", "llm_kwargs": {"max_tokens": 11, "reasoning": {"effort": "low"}}},
+        "provider_default",
+    )
+    assert kwargs == {}
+    high = llm_call_kwargs({"provider": "openrouter", "llm_kwargs": {"api_key": "local"}}, "high")
+    assert high == {"api_key": "local", "reasoning": {"effort": "high"}}
+    assert "max_tokens" not in high
+    plain_live = harbor_agent_kwargs(
+        {"provider": "openrouter", "llm_kwargs": {"max_tokens": 11, "api_key": "local"}},
+        "provider_default",
+    )
+    assert plain_live == {"llm_kwargs": {"api_key": "local"}}
+    assert "reasoning_effort" not in plain_live
+    high_live = harbor_agent_kwargs({"provider": "openrouter"}, "xhigh")
+    assert high_live["reasoning_effort"] == "xhigh"
+    assert "reasoning" not in high_live["llm_kwargs"]
+    assert "max_tokens" not in high_live["llm_kwargs"]
 
 
 def test_replay_volatile_pid_and_stable_cause():
