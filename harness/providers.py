@@ -49,8 +49,9 @@ def _key(name):
 class OpenRouter:
     URL = "https://openrouter.ai/api/v1/chat/completions"
 
-    def __init__(self, model, temperature=None, max_tokens=None, extra=None):
+    def __init__(self, model, temperature=None, max_tokens=None, extra=None, reasoning_effort=None):
         self.model, self.temperature, self.max_tokens, self.extra = model, temperature, max_tokens, extra or {}
+        self.reasoning_effort = reasoning_effort
         self.key = _key("OPENROUTER_API_KEY")
         self.messages = []
 
@@ -58,14 +59,17 @@ class OpenRouter:
         self.messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     def step(self):
+        from .reasoning import request_fields, strip_output_caps
         body = {"model": self.model, "messages": self.messages,
                 "tools": [{"type": "function", "function": {"name": "bash", "description": BASH_TOOL_DESC,
                                                              "parameters": BASH_PARAMS}}],
                 "usage": {"include": True}, **self.extra}
-        if self.max_tokens is not None:
-            body["max_tokens"] = self.max_tokens
+        # max_tokens is never sent, including when the config set one.
         if self.temperature is not None:
             body["temperature"] = self.temperature
+        if self.reasoning_effort is not None:
+            body.update(request_fields("openrouter", self.reasoning_effort))
+        strip_output_caps(body)
         r = _post(self.URL, {"Authorization": f"Bearer {self.key}", "X-Title": "micro1-eval"}, body)
         msg = r["choices"][0]["message"]
         self.messages.append({k: v for k, v in msg.items() if v is not None})
@@ -98,8 +102,9 @@ class OpenRouter:
 class Gemini:
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, model, temperature=None, max_tokens=None, extra=None):
+    def __init__(self, model, temperature=None, max_tokens=None, extra=None, reasoning_effort=None):
         self.model, self.temperature, self.max_tokens, self.extra = model, temperature, max_tokens, extra or {}
+        self.reasoning_effort = reasoning_effort
         self.key = _key("GEMINI_API_KEY")
         self.contents, self.system = [], ""
         self._names = {}
@@ -109,15 +114,19 @@ class Gemini:
         self.contents = [{"role": "user", "parts": [{"text": user}]}]
 
     def step(self):
+        from .reasoning import request_fields, strip_output_caps
         gen = {**self.extra.get("generationConfig", {})}
-        if self.max_tokens is not None:
-            gen["maxOutputTokens"] = self.max_tokens
+        # maxOutputTokens is never sent, including when the config set one.
         if self.temperature is not None:
             gen["temperature"] = self.temperature
+        if self.reasoning_effort is not None:
+            thinking = request_fields("gemini", self.reasoning_effort)
+            gen = {**gen, **thinking["generationConfig"]}
         body = {"systemInstruction": {"parts": [{"text": self.system}]}, "contents": self.contents,
                 "tools": [{"functionDeclarations": [{"name": "bash", "description": BASH_TOOL_DESC,
                                                      "parameters": BASH_PARAMS}]}],
                 "generationConfig": gen}
+        strip_output_caps(body)
         r = _post(self.URL.format(model=self.model), {"x-goog-api-key": self.key}, body)
         cand = (r.get("candidates") or [{}])[0]
         content = cand.get("content") or {"role": "model", "parts": []}
@@ -171,11 +180,11 @@ class Scripted:
         pass
 
 
-def make(provider, model, task, temperature=None, max_tokens=None, extra=None):
+def make(provider, model, task, temperature=None, max_tokens=None, extra=None, reasoning_effort=None):
     if provider == "openrouter":
-        return OpenRouter(model, temperature, max_tokens, extra)
+        return OpenRouter(model, temperature, max_tokens, extra, reasoning_effort)
     if provider == "gemini":
-        return Gemini(model, temperature, max_tokens, extra)
+        return Gemini(model, temperature, max_tokens, extra, reasoning_effort)
     if provider == "scripted":
         return Scripted(model, task=task)
     raise ValueError(f"unknown provider {provider}")

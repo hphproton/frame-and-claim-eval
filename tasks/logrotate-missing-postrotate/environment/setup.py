@@ -24,6 +24,9 @@ rng = random.Random(seed)
 log_dir = "/var/log/reporter"
 hist = log_dir + "/history"
 os.makedirs(hist, exist_ok=True)
+os.makedirs("/etc/reporter", exist_ok=True)
+with open("/etc/reporter/reopen.mode", "w") as handle:
+    handle.write("hold\n")
 for i in range(3):
     with open(f"{hist}/app-{i}.log", "wb") as f:
         f.write(rng.randbytes(rng.randint(1024, 4096)))

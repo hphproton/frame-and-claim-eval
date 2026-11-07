@@ -1,5 +1,5 @@
 """Live-run dispatch, without Harbor and without a model call."""
-import os, pathlib, sys, types
+import os, pathlib, sys, tempfile, textwrap, types
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from harness.terminus_pin import active_task_ids, litellm_model_name
@@ -129,18 +129,63 @@ def test_live_run_uses_terminus_and_does_not_call_a_model():
     cli.report.load_trials = lambda root: []
     cli.report.write = lambda *args, **kwargs: "ok"
     try:
+        live_toml = tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False)
+        live_toml.write(textwrap.dedent("""
+            [[models]]
+            label = "unit-live"
+            provider = "openrouter"
+            model = "example/unit"
+            temperature = 1.0
+            reasoning_effort = "high"
+        """))
+        live_toml.close()
         class Live:
-            config = "configs/pilot.toml"
+            config = live_toml.name
             tasks = "deleted-log-no-downtime"
-            models = "claude-opus-5.5"
+            models = "unit-live"
             trials = 1
             seed = 1
             run_id = "unit-live"
         assert cli.cmd_run(Live()) == 0
         assert started == ["deleted-log-no-downtime"]
         assert "harness.agent" not in sys.modules
+        os.unlink(live_toml.name)
     finally:
         (cli.env.Task, cli.env.build, cli.report.aggregate, cli.report.load_trials, cli.report.write) = original
+        sys.modules.pop("harness.terminus_runner", None)
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
+def test_todo_effort_exits_before_a_call():
+    import harness.cli as cli
+    started = []
+    fake = types.ModuleType("harness.terminus_runner")
+
+    def run_live(*args, **kwargs):
+        started.append(args)
+        return {}, {"steps": 0, "stop_reason": "agent_done", "usage": {}}
+
+    fake.run_live = run_live
+    sys.modules["harness.terminus_runner"] = fake
+    saved = {name: os.environ.get(name) for name in ("OPENROUTER_API_KEY", "GEMINI_API_KEY")}
+    os.environ["OPENROUTER_API_KEY"] = "not-a-real-key"
+    os.environ["GEMINI_API_KEY"] = "not-a-real-key"
+    try:
+        class Live:
+            config = "configs/pilot.toml"
+            tasks = "deleted-log-no-downtime"
+            models = "claude-opus-5.5"
+            trials = 1
+            seed = 1
+            run_id = "unit-todo"
+        assert cli.cmd_run(Live()) == 2
+        assert started == []
+        assert "harbor" not in sys.modules
+    finally:
         sys.modules.pop("harness.terminus_runner", None)
         for name, value in saved.items():
             if value is None:
@@ -155,4 +200,5 @@ if __name__ == "__main__":
     test_missing_key_exits_before_terminus()
     test_scripted_controls_use_terminus()
     test_live_run_uses_terminus_and_does_not_call_a_model()
+    test_todo_effort_exits_before_a_call()
     print("run plan checks: OK")

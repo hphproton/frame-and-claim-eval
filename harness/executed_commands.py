@@ -106,7 +106,7 @@ def _hook_noise(command):
     return (
         text in {
             "set -T", "set -o functrace", "trap trace_debug DEBUG", "trap - DEBUG",
-            "set -x", "return 0",
+            "set -x", "set +x", "return 0",
         }
         or text.startswith("trace_debug")
         or text.startswith("TRACE_IN=")
@@ -424,6 +424,12 @@ def _simple_head(stmt, skip_words):
             start = i
             i = nxt
             continue
+        # A path and the `[` builtin are commands. Skipping them used to turn
+        # `/bin/true` into `bin/true` and `[ -e file ]` into `e file ]`.
+        if start is None and (ch == "/" or ch == "[" or (ch == "." and i + 1 < n and stmt[i + 1] in "./")):
+            start = i
+            i += 1
+            continue
         if start is not None and (stmt.startswith("&&", i) or stmt.startswith("||", i) or ch in "|;"):
             return stmt[start:i].strip()
         if start is not None and ch == "\n":
@@ -617,15 +623,20 @@ def _command_word(command):
 
 
 def _evidence_noise(text):
+    """Hook machinery only. A user's printf or `[` test is evidence."""
     if _hook_noise(text):
         return True
-    return (
-        text.startswith("printf '%s")
-        or text.startswith('printf "%s')
-        or text.startswith("local ")
-        or text.startswith("case ")
-        or text.startswith("[")
-    )
+    if text.startswith("local ") or text.startswith("case "):
+        return True
+    # The hook prints one NUL-terminated record. printf '%s\\n' is a user command.
+    if text.startswith("printf ") and ("%s\\0" in text or "%s\0" in text):
+        return True
+    stripped = text.strip()
+    if stripped.startswith("[") and "TRACE_IN" in stripped:
+        return True
+    if stripped in {"[ 0 = 1 ]", "[ 1 = 1 ]"}:
+        return True
+    return False
 
 
 def _xtrace_evidence(blob):
@@ -838,10 +849,29 @@ def _function_bodies(stmt):
     return [body] if body is not None else []
 
 
+_STRUCTURAL = {"then", "else", "elif", "do", "fi", "done"}
+
+
+def _strip_structural(text):
+    """Drop leading then/else/do so the selected branch is an allowed command."""
+    body = (text or "").lstrip()
+    while body:
+        word, nxt = _read_word(body, 0)
+        if word not in _STRUCTURAL:
+            break
+        body = body[nxt:].lstrip()
+    return body
+
+
 def _add_allowed(allowed, text):
     key = _norm_cmd(text)
     if key:
         allowed.add(key)
+    stripped = _strip_structural(text)
+    if stripped != (text or "").lstrip():
+        key = _norm_cmd(stripped)
+        if key:
+            allowed.add(key)
 
 
 def _collect_allowed(script, allowed):
@@ -902,6 +932,120 @@ def _host_verified(commands, ran, script, blob):
     return trusted, trusted_ran
 
 
+def _and_or_parts(stmt):
+    """Split on top-level && and ||. A pipe stays inside its part."""
+    parts = []
+    buf = []
+    i = 0
+    n = len(stmt)
+    quote = None
+    while i < n:
+        ch = stmt[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in "'\"":
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            buf.append(ch)
+            buf.append(stmt[i + 1])
+            i += 2
+            continue
+        if stmt.startswith("&&", i) or stmt.startswith("||", i):
+            parts.append("".join(buf).strip())
+            buf = []
+            i += 2
+            continue
+        buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return [part for part in parts if part]
+
+
+def _has_top_pipe(text):
+    quote = None
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if quote:
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in "'\"":
+            quote = ch
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if ch == "|" and not (i + 1 < n and text[i + 1] == "|"):
+            return True
+        i += 1
+    return False
+
+
+def _depth1_xtrace(lines):
+    found = []
+    for line in lines:
+        if not line.startswith("+ ") or line.startswith("++"):
+            continue
+        text = line[2:].strip()
+        if text and not _evidence_noise(text):
+            found.append(text)
+    return found
+
+
+def _pipeline_nodes(script, blob, already):
+    """Record a pipeline only when that invocation's xtrace ran its pieces.
+
+    The hook writes the command, then a NUL, then that command's xtrace.
+    Both sides of one pipeline share the following record. A later separate
+    command has its own record and does not prove the pipeline. A
+    short-circuited side has no xtrace line.
+    """
+    # Bash may DEBUG-trap each pipeline member, then write every member's
+    # depth-1 xtrace into one record. That record is the invocation. Separate
+    # commands do not share a record, and a short-circuited pipeline has none.
+    sequences = []
+    for traced, _command in _records(blob):
+        seq = _depth1_xtrace(traced)
+        if len(seq) >= 2:
+            sequences.append(seq)
+    used = [False] * len(sequences)
+    added = []
+    seen = {_norm_ws(item) for item in already}
+    for stmt in _statements(script or ""):
+        for part in _and_or_parts(stmt):
+            if not _has_top_pipe(part):
+                continue
+            key = _norm_ws(part)
+            if not key or key in seen:
+                continue
+            segments, _nested = _scan_pieces(part)
+            if len(segments) < 2:
+                continue
+            want = [_norm_cmd(seg) for seg in segments]
+            for index, seq in enumerate(sequences):
+                if used[index]:
+                    continue
+                if [_norm_cmd(item) for item in seq] == want:
+                    used[index] = True
+                    added.append(part.strip())
+                    seen.add(key)
+                    break
+    return added
+
+
 def parse_trace(blob, script_exit, output, script=None):
     """Commands from a trace file, plus compounds whose head ran.
 
@@ -915,6 +1059,7 @@ def parse_trace(blob, script_exit, output, script=None):
     if script is not None:
         commands, ran = _host_verified(commands, ran, script, blob)
     commands.extend(_compounds(script, ran))
+    commands.extend(_pipeline_nodes(script, blob, commands))
     single = len(commands) == 1
     return [
         {

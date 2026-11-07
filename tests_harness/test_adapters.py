@@ -50,12 +50,15 @@ assert g_body["contents"][1]["parts"][0]["thoughtSignature"] == "sig=="         
 assert g_body["contents"][2]["parts"][0]["functionResponse"]["response"]["output"] == "exit_code=0\nok"
 assert "x-goog-api-key" in sent[3][1] and g_body["generationConfig"]["temperature"] == 0.5
 sent.clear()
-capped = providers.OpenRouter("m", max_tokens=11)
+capped = providers.OpenRouter("m", max_tokens=11, reasoning_effort="high")
 capped.start("sys", "user")
 capped.step()
-assert sent[0][2]["max_tokens"] == 11
-capped_g = providers.Gemini("m", max_tokens=11)
+assert "max_tokens" not in sent[0][2]
+assert "max_completion_tokens" not in sent[0][2]
+assert sent[0][2]["reasoning"] == {"effort": "high"}
+capped_g = providers.Gemini("m", max_tokens=11, reasoning_effort="xhigh")
 capped_g.start("sys", "user")
 capped_g.step()
-assert sent[1][2]["generationConfig"]["maxOutputTokens"] == 11
+assert "maxOutputTokens" not in sent[1][2]["generationConfig"]
+assert sent[1][2]["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "xhigh"
 print("adapter wire-format checks: OK")

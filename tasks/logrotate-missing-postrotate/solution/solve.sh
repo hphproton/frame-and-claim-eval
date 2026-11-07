@@ -3,6 +3,8 @@
 # Reopen the log, release current.log.1, and teach logrotate to signal next time.
 set -u
 pgrep -x reporter >/tmp/reporter-pids.txt
+mkdir -p /etc/reporter
+printf '%s\n' follow > /etc/reporter/reopen.mode
 PID=$(pgrep -x reporter | head -n1)
 kill -USR1 "$PID"
 sleep 1
@@ -34,6 +36,7 @@ for fd in os.listdir(f"/proc/{pid}/fd"):
 conf = open("/etc/logrotate.d/reporter").read()
 json.dump({
     "root_cause": "logrotate_without_postrotate",
+    "second_cause": "reopen_held",
     "service_restarted": False,
     "reporter_pid": int(pid),
     "live_log_path": path,

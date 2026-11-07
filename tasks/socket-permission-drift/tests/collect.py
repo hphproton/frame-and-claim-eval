@@ -222,6 +222,11 @@ print(json.dumps({
     "queue": queue_state("/run/qbroker/queue.sock", procs),
     "admin": sockstat("/run/qbroker/admin.sock"),
     "conf": conf,
+    "spec_version": 2,
+    "run_dir": {
+        "mode": stat.S_IMODE(os.stat("/run/qbroker").st_mode),
+        "group": grp.getgrgid(os.stat("/run/qbroker").st_gid).gr_name,
+    },
     "db_sha": db,
     "binary_sha": {p: sha256(p) for p in BINS},
     "frame_manifest": _frame_manifest(["/var/lib/qbroker", "/opt/qbroker", "/etc/qbroker", "/run/qbroker"]),

@@ -23,7 +23,7 @@ seed = read_task_seed()
 rng = random.Random(seed)
 os.makedirs("/run/qbroker", mode=0o755, exist_ok=True)
 os.makedirs("/var/lib/qbroker", exist_ok=True)
-os.chmod("/run/qbroker", 0o755)
+os.chmod("/run/qbroker", 0o700)
 with open("/var/lib/qbroker/queue.db", "wb") as f:
     f.write(rng.randbytes(2048))
 for _ in range(rng.randint(10, 40)):

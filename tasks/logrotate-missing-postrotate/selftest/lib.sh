@@ -108,6 +108,7 @@ ok = (health and free >= 16 and free2 >= 16 * 1048576 and path == LOG and s2 > s
 os.makedirs("/output", exist_ok=True)
 json.dump({
     "root_cause": "logrotate_without_postrotate",
+    "second_cause": "reopen_held",
     "service_restarted": restarted,
     "reporter_pid": pid,
     "live_log_path": path,

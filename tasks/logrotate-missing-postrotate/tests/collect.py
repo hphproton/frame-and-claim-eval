@@ -221,6 +221,8 @@ print(json.dumps({
     "reporter_all": reps,
     "history": history(),
     "logrotate_conf": conf,
+    "spec_version": 2,
+    "reopen_mode": open("/etc/reporter/reopen.mode").read().strip() if os.path.exists("/etc/reporter/reopen.mode") else "",
     "logrotate_probe": {
         "rc": probe.returncode,
         "stderr": probe_err[-1500:],

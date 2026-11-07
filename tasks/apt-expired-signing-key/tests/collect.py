@@ -255,6 +255,7 @@ try:
 except OSError as exc:
     handoff_err = str(exc)
 obs = observe()
+obs["spec_version"] = 2
 obs["handoff_raw"] = handoff_raw
 obs["handoff_error"] = handoff_err
 print(json.dumps(obs))

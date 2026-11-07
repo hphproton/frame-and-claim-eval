@@ -133,6 +133,9 @@ print(json.dumps({
     "token_file": read_text("/etc/ready/token"),
     "vault_token": read_text("/run/ready/vault.token"),
     "payd_ready": read_text("/run/ready/payd.ready"),
+    "spec_version": 2,
+    "issue_mode": read_text("/etc/ready/issue.mode").strip(),
+    "issued_token": read_text("/var/lib/ready/issued.token").strip(),
     "binary_sha": {path: sha256(path) for path in BINS},
     "frame_manifest": _frame_manifest(["/opt/ready", "/etc/ready", "/run/ready", "/var/lib/ready"]),
 }))

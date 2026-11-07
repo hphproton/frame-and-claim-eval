@@ -64,10 +64,11 @@ def payd_ok(pid):
 try:
     order = open("/etc/ready/order.conf", "rb").read().decode("latin-1")
     token = open("/run/ready/vault.token", "rb").read().decode("latin-1").strip()
+    boot = open("/etc/ready/token", "rb").read().decode("latin-1").strip()
     ready = open("/run/ready/payd.ready", "rb").read().decode("latin-1").split()
 except OSError:
     sys.exit(1)
-if not order_ok(order) or len(ready) != 2 or ready[1] != token or not token:
+if not order_ok(order) or len(ready) != 2 or ready[1] != token or token != boot or not token:
     sys.exit(1)
 try:
     ok = payd_ok(ready[0])
