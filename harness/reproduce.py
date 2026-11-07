@@ -12,6 +12,9 @@ def regrade(root):
     for g in sorted(pathlib.Path(root).rglob("grade.json")):
         d = g.parent
         saved = json.loads(g.read_text())
+        if saved.get("task") not in tasks:
+            print(f"RETIRED {d}")
+            continue
         b, p = (json.loads((d / f).read_text()) for f in ("baseline.json", "post.json"))
         n += 1
         try:

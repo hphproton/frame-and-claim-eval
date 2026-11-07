@@ -202,6 +202,12 @@ def main(root=None, workers=2):
         print(f"no trials with grade.json, meta.json, and transcript.jsonl under {root}")
         return 1
     tasks = {}
+    for tid in list(grouped):
+        if not (storage.ROOT / "tasks" / tid / "task.toml").is_file():
+            print(f"RETIRED {tid}  {len(grouped.pop(tid))} trials not replayed")
+    if not grouped:
+        print(f"no active tasks under {root}")
+        return 0
     for tid in grouped:
         task = env.Task(tid)
         env.build(task)
