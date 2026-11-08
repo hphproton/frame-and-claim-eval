@@ -67,7 +67,8 @@ def _call_record(response, kwargs):
     cached = _field(_field(usage, "prompt_tokens_details"), "cached_tokens")
     if cached is None:
         cached = _field(usage, "cache_read_input_tokens")
-    return {
+    from .reasoning import request_log_fields
+    record = {
         "finish_reason": _field(choice, "finish_reason"),
         "cached_tokens": cached,
         "prompt_tokens": _field(usage, "prompt_tokens"),
@@ -75,6 +76,14 @@ def _call_record(response, kwargs):
         "reasoning_tokens": reasoning,
         "max_tokens": kwargs.get("max_tokens"),
     }
+    record.update(request_log_fields(kwargs))
+    model = _field(response, "model")
+    if isinstance(model, str):
+        record["response_model"] = model
+    cost = _field(usage, "cost")
+    if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+        record["provider_cost_usd"] = float(cost)
+    return record
 
 
 def install_llm_spy():
@@ -118,12 +127,18 @@ def _usage_from_records(records):
     def total(key):
         return sum(row[key] for row in records if isinstance(row.get(key), int))
 
-    return {
+    usage = {
         "input_tokens": total("prompt_tokens"),
         "output_tokens": total("completion_tokens"),
         "reasoning_tokens": total("reasoning_tokens"),
         "cost_usd": 0.0,
     }
+    costs = [row.get("provider_cost_usd") for row in records]
+    if records and all(isinstance(cost, (int, float)) and not isinstance(cost, bool) for cost in costs):
+        usage["cost_usd_provider"] = round(sum(costs), 6)
+    else:
+        usage["cost_usd_provider"] = None
+    return usage
 
 
 def _apply_call_meta(meta, seen_max_tokens, records):
@@ -133,6 +148,12 @@ def _apply_call_meta(meta, seen_max_tokens, records):
         meta["llm_calls_detail"] = list(records)
         meta["max_tokens_seen"] = [row.get("max_tokens") for row in records]
         meta["usage"] = _usage_from_records(records)
+        seen = []
+        for row in records:
+            model = row.get("response_model")
+            if isinstance(model, str) and model not in seen:
+                seen.append(model)
+        meta["provider_model_ids"] = seen
         return
     meta["llm_calls"] = len(seen_max_tokens)
     meta["max_tokens_seen"] = list(seen_max_tokens)

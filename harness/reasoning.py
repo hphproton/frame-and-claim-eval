@@ -103,6 +103,36 @@ def harbor_agent_kwargs(model_cfg, effort):
     return kwargs
 
 
+def request_log_fields(kwargs):
+    """Reasoning and cap flags from one completion call. No messages and no key.
+
+    These are the fields LiteLLM keeps for OpenRouter: reasoning_effort, and a
+    reasoning object when the caller put one in extra_body. The log stores the
+    flags, not the request body.
+    """
+    extra = kwargs.get("extra_body") if isinstance(kwargs.get("extra_body"), dict) else {}
+    reasoning = extra.get("reasoning") if isinstance(extra.get("reasoning"), dict) else None
+    if reasoning is None and isinstance(kwargs.get("reasoning"), dict):
+        reasoning = kwargs.get("reasoning")
+    effort = reasoning.get("effort") if isinstance(reasoning, dict) else None
+    if not isinstance(effort, str):
+        effort = None
+    param = kwargs.get("reasoning_effort")
+    if not isinstance(param, str):
+        param = None
+    cap_keys = ("max_tokens", "max_completion_tokens", "maxOutputTokens")
+    has_cap = any(kwargs.get(key) is not None for key in cap_keys)
+    if isinstance(extra, dict):
+        has_cap = has_cap or any(extra.get(key) is not None for key in cap_keys)
+    return {
+        "request_has_reasoning": bool(reasoning) or param is not None,
+        "request_reasoning_object": isinstance(reasoning, dict),
+        "request_reasoning_effort": effort or param,
+        "request_has_temperature": kwargs.get("temperature") is not None,
+        "request_has_max_tokens": has_cap,
+    }
+
+
 def stamp_meta(meta, effort):
     meta["reasoning_effort"] = effort
     meta["max_tokens_sent"] = False

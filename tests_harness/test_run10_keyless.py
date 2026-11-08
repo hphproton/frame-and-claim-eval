@@ -4,7 +4,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from harness.command_budget import write_handoff
 from harness.openrouter_spend import session_poller
-from harness.reasoning import harbor_agent_kwargs, llm_call_kwargs, request_fields, stamp_meta
+from harness.reasoning import harbor_agent_kwargs, llm_call_kwargs, request_fields, request_log_fields, stamp_meta
 from harness.replay import is_volatile, replay_agrees
 from harness.session_budget import SessionBudget
 from harness.watchdog import classify_hung, terminate_hung
@@ -112,6 +112,28 @@ def test_reasoning_payload_and_meta():
     assert "max_tokens" not in high_live["llm_kwargs"]
 
 
+def test_request_log_records_reasoning_and_drops_the_key():
+    fields = request_log_fields({
+        "api_key": "local-test-not-a-key",
+        "messages": [{"role": "user", "content": "secret"}],
+        "temperature": 1.0,
+        "reasoning_effort": "high",
+        "extra_body": {"reasoning": {"effort": "high"}},
+        "max_tokens": None,
+    })
+    assert fields["request_has_reasoning"] is True
+    assert fields["request_reasoning_object"] is True
+    assert fields["request_reasoning_effort"] == "high"
+    assert fields["request_has_temperature"] is True
+    assert fields["request_has_max_tokens"] is False
+    blob = json.dumps(fields)
+    assert "local-test-not-a-key" not in blob
+    assert "secret" not in blob
+    plain = request_log_fields({"temperature": 1.0})
+    assert plain["request_has_reasoning"] is False
+    assert plain["request_reasoning_effort"] is None
+
+
 def test_replay_volatile_pid_and_stable_cause():
     saved = {
         "goal": {"pass": True}, "frame": {"pass": True}, "fixed": True,
@@ -141,5 +163,6 @@ if __name__ == "__main__":
     test_session_budget_fails_closed_and_has_no_per_trial_cap()
     test_watchdog_kills_a_sleep_and_does_not_call_it_success()
     test_reasoning_payload_and_meta()
+    test_request_log_records_reasoning_and_drops_the_key()
     test_replay_volatile_pid_and_stable_cause()
     print("run10 keyless checks: OK")
