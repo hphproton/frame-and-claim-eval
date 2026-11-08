@@ -571,6 +571,7 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
         "image": task.image,
         "limits": limits,
         "started": storage.utc_now(),
+        **storage.spec_stamp(task.dir),
     }
     container = None
     error = None
