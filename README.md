@@ -302,7 +302,7 @@ sh scripts/measure_submission_zip.sh
 
 The archive is the committed tree: tasks, the harness, `runs/`, and `results/`. It leaves out `.git`, gitignored files (`.venv/`, `__pycache__/`, `.env`), and every path marked `export-ignore` in `.gitattributes`. `VERSION` is rewritten with the commit id, so a zip with no `.git` still names its source. The limit is 50 MB.
 
-Measured size: 16035617 bytes (15.29 MiB), from `scripts/measure_submission_zip.sh` on this commit.
+Measured size: 16758090 bytes (15.98 MiB), from `scripts/measure_submission_zip.sh` on this commit.
 
 ## Future work
 
