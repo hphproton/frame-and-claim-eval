@@ -161,3 +161,19 @@ class CommandBudget:
 def write_handoff(writer, body):
     """Write the handoff and no other path. writer.write_text is the only effect."""
     writer.write_text(HANDOFF_PATH, body)
+
+
+def user_turn(prompt, notice=None):
+    """The user message that must end the next model request.
+
+    Gemini drops an empty user turn and then rejects the request, because it
+    ends on the previous model turn. When the report window is open, that
+    user message is the report notice. A shell that returned nothing, because
+    every repair was blocked, is not a request by itself.
+    """
+    text = prompt if isinstance(prompt, str) else ""
+    if notice and notice not in text:
+        text = notice if not text.strip() else notice + "\n" + text
+    if not text.strip():
+        text = "The previous response produced no terminal output."
+    return text
