@@ -51,7 +51,7 @@ clean-images:
 	-$${DOCKER:-docker} images --format '{{.Repository}}:{{.Tag}}' | grep '^micro1eval/' | xargs -r $${DOCKER:-docker} rmi
 
 test-harness:
-	@sha=$$(git rev-parse HEAD); \
+	@sha=$$($(PY) -c "from harness import storage; print(storage.source_sha())"); \
 	mkdir -p results/test-harness; \
 	out=results/test-harness/SUMMARY.txt; \
 	echo "source_sha $$sha" > $$out; \

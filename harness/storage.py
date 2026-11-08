@@ -9,9 +9,25 @@ def utc_now():
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _version_file_sha():
+    """The commit id git archive wrote into VERSION, or "" in a checkout (where it still reads $Format:%H$)."""
+    try:
+        text = (ROOT / "VERSION").read_text().strip()
+    except OSError:
+        return ""
+    return text if re.fullmatch(r"[0-9a-f]{40}", text) else ""
+
+
 def source_sha():
-    """HEAD when this process started the command. A later commit of the output is a child of this SHA."""
+    """HEAD when this process started the command. A later commit of the output is a child of this SHA.
+
+    A zip made by git archive has no .git, and may be unpacked inside some other repository, where
+    git rev-parse would name the wrong commit. VERSION (export-subst) is read first.
+    """
     import subprocess
+    stamped = _version_file_sha()
+    if stamped:
+        return stamped
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],

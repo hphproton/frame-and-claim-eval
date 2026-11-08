@@ -7,6 +7,6 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-git -C "$root" archive --format=zip --prefix=micro1-frame-and-claim-eval/ --output="$tmp/submission.zip" HEAD
+git -C "$root" archive --format=zip --output="$tmp/submission.zip" HEAD
 bytes=$(wc -c < "$tmp/submission.zip" | tr -d ' ')
 echo "$bytes bytes ($tmp/submission.zip from HEAD)"
