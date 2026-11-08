@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+"""metricsd: writes host counters to /var/lib/metricsd/live.json every two seconds.
+
+The log is /var/log/metricsd.log. The files under /var/lib/metricsd/archive are history from earlier days.
+"""
+import json, os, signal, time
+
+LOG = "/var/log/metricsd.log"
+LIVE = "/var/lib/metricsd/live.json"
+RELOADS = 0
+
+
+def log(message):
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with open(LOG, "a") as handle:
+        handle.write(f"{stamp} metricsd[{os.getpid()}]: {message}\n")
+
+
+def reload(*_):
+    global RELOADS
+    RELOADS += 1
+    log(f"SIGHUP: configuration reread (reload {RELOADS})")
+
+
+def main():
+    signal.signal(signal.SIGHUP, reload)
+    log("started")
+    while True:
+        try:
+            load = open("/proc/loadavg").read().split()[:3]
+        except OSError:
+            load = []
+        tmp = LIVE + ".tmp"
+        with open(tmp, "w") as handle:
+            json.dump({"t": time.time(), "load": load, "reloads": RELOADS}, handle)
+        os.replace(tmp, LIVE)
+        time.sleep(2)
+
+
+if __name__ == "__main__":
+    main()
