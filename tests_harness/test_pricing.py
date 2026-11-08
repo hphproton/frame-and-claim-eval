@@ -75,7 +75,7 @@ def test_committed_configs_pass_the_checks():
         cfg = tomllib.loads((ROOT / "configs" / f"{name}.toml").read_text())
         for model in cfg["models"]:
             check_model_keys(model)
-    for name, budget in (("calibration-gemini-20261108", 1.0), ("official-gemini-20261108", 4.0)):
+    for name, budget in (("calibration-gemini-20261108", 1.0), ("official-gemini-20261108", 5.0)):
         cfg = tomllib.loads((ROOT / "configs" / f"{name}.toml").read_text())
         assert cfg["session_budget_usd"] == budget
         model = cfg["models"][0]
