@@ -142,12 +142,13 @@ def test_crash_before_the_model_is_excluded():
         "model": "deepseek-v4.1-flash-1017",
         "api_error": 0,
         "infra_error": 1,
+        "provider_stall": 0,
         "other": 0,
     }]
     text = report.write(summary, pathlib.Path("/tmp/m1e-report-crash"), "unit")
-    assert "| deleted-log-no-downtime | deepseek-v4.1-flash-1017 | 0 | 1 | 0 |" in text
+    assert "| deleted-log-no-downtime | deepseek-v4.1-flash-1017 | 0 | 1 | 0 | 0 |" in text
     scored = [line for line in text.splitlines() if line.startswith("| deleted-log")]
-    assert scored == ["| deleted-log-no-downtime | deepseek-v4.1-flash-1017 | 0 | 1 | 0 |"]
+    assert scored == ["| deleted-log-no-downtime | deepseek-v4.1-flash-1017 | 0 | 1 | 0 | 0 |"]
 
 
 def test_collect_error_after_a_model_turn_stays_scored():
