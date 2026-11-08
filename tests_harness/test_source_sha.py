@@ -8,10 +8,16 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def test_a_checkout_reads_git_not_the_unexpanded_placeholder():
-    assert (ROOT / "VERSION").read_text().strip() == "$Format:%H$"
-    assert storage._version_file_sha() == ""
-    sha = storage.source_sha()
-    assert sha == "unknown" or len(sha) == 40
+    text = (ROOT / "VERSION").read_text().strip()
+    if text == "$Format:%H$":
+        assert storage._version_file_sha() == ""
+        sha = storage.source_sha()
+        assert sha == "unknown" or len(sha) == 40
+        return
+    # git archive expands the placeholder. A tree with no .git must report that commit.
+    assert len(text) == 40 and set(text) <= set("0123456789abcdef")
+    assert storage._version_file_sha() == text
+    assert storage.source_sha() == text
 
 
 def test_version_file_wins_when_it_holds_a_commit_id():
@@ -32,6 +38,10 @@ def test_version_file_wins_when_it_holds_a_commit_id():
 
 
 def test_git_archive_expands_version_and_leaves_out_agent_notes():
+    # Only this tree's .git. A parent repository must not be the source of the archive.
+    if not (ROOT / ".git").exists():
+        print("SKIPPED git archive check: this tree has no .git")
+        return
     # The attributes are read from the archived tree, so this needs them committed in HEAD.
     if subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", "HEAD:.gitattributes"], capture_output=True).returncode != 0:
         print("SKIPPED git archive check: .gitattributes is not in HEAD yet")
