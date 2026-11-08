@@ -64,8 +64,12 @@ def _call_record(response, kwargs):
     reasoning = _field(usage, "reasoning_tokens")
     if reasoning is None:
         reasoning = _field(details, "reasoning_tokens")
+    cached = _field(_field(usage, "prompt_tokens_details"), "cached_tokens")
+    if cached is None:
+        cached = _field(usage, "cache_read_input_tokens")
     return {
         "finish_reason": _field(choice, "finish_reason"),
+        "cached_tokens": cached,
         "prompt_tokens": _field(usage, "prompt_tokens"),
         "completion_tokens": _field(usage, "completion_tokens"),
         "reasoning_tokens": reasoning,
@@ -799,6 +803,12 @@ def run_live(task, model_cfg, run_id, trial, seed):
         temperature=model_cfg.get("temperature"), max_tokens=None,
     )
     stamp_meta(result["meta"], effort)
+    table = model_cfg.get("price_table")
+    if table:
+        from . import pricing
+        usage = result["meta"].setdefault("usage", {})
+        usage["cost_usd_litellm"] = usage.get("cost_usd")
+        usage.update(pricing.trial_cost(result["meta"].get("llm_calls_detail"), pricing.validate(table)))
     result["meta"]["max_tokens"] = None
     (pathlib.Path(result["trial_dir"]) / "meta.json").write_text(
         json.dumps(result["meta"], indent=2, sort_keys=True) + "\n"

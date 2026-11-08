@@ -2,7 +2,8 @@
 import argparse, concurrent.futures as cf, datetime as dt, json, os, pathlib, random, sys, threading, tomllib
 
 from . import env, pilot_regrade, replay, report, reproduce, selftest, storage
-from .reasoning import ReasoningUnset, require_effort
+from .reasoning import ReasoningUnset, check_model_keys, require_effort
+from .pricing import PriceTableError, validate as validate_price_table
 from .session_budget import SessionBudget
 
 
@@ -25,6 +26,12 @@ def _scripted_trial(task, model_cfg, run_id, trial, seed):
     return result["verdict"], result["meta"]
 
 
+def _require_price(model):
+    """A direct-Gemini model needs a dated price table: the provider reports no cost the harness can use."""
+    if model.get("provider") == "gemini" or model.get("price_table"):
+        validate_price_table(model.get("price_table"))
+
+
 def cmd_run(a):
     cfg = tomllib.loads(open(a.config).read())
     models = [m for m in cfg["models"] if not a.models or m["label"] in a.models.split(",")]
@@ -37,8 +44,10 @@ def cmd_run(a):
         return 2
     try:
         for model in models:
+            check_model_keys(model)
             require_effort(model)
-    except ReasoningUnset as exc:
+            _require_price(model)
+    except (ReasoningUnset, PriceTableError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     run_id = a.run_id or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")

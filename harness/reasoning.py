@@ -7,11 +7,27 @@ the run before a provider call. This module does not send max_tokens.
 """
 
 ALLOWED = ("high", "xhigh", "provider_default")
+# Keys a [[models]] block may carry. An unknown key is refused: `extra` was once
+# written for the Terminus path, which never read it.
+MODEL_KEYS = (
+    "label", "provider", "model", "temperature", "reasoning_effort",
+    "api_base", "model_info", "llm_kwargs", "price_table",
+)
 _CAP_KEYS = ("max_tokens", "max_completion_tokens", "maxOutputTokens")
 
 
 class ReasoningUnset(Exception):
     """The live config has no usable reasoning effort."""
+
+
+def check_model_keys(model_cfg):
+    """Refuse a model block with a key this runner does not read."""
+    unknown = sorted(set(model_cfg) - set(MODEL_KEYS))
+    if unknown:
+        raise ReasoningUnset(
+            f"model {model_cfg.get('label', '?')} has keys the runner does not read: {unknown}. "
+            f"Allowed: {list(MODEL_KEYS)}. No request was sent."
+        )
 
 
 def require_effort(model_cfg):
