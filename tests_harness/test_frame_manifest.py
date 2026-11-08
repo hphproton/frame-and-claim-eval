@@ -53,7 +53,7 @@ def with_manifest(baseline, post, manifest_before, manifest_after, task):
 def test_copies_match():
     canon = (ROOT / "harness" / "frame_manifest.py").read_bytes()
     copies = list((ROOT / "tasks").glob("*/tests/frame_manifest.py"))
-    assert len(copies) == 6
+    assert len(copies) == len(list((ROOT / "tasks").glob("*/task.toml"))) >= 6  # every task carries the copy
     for path in copies:
         assert path.read_bytes() == canon, path
     walker = (ROOT / "harness" / "frame_walk.py").read_text().strip()
@@ -67,7 +67,7 @@ def test_copies_match():
         end = text.index("\ndef ", start + 1)
         assert text[start:end].strip() == walker, path
         found += 1
-    assert found == 10
+    assert found >= 10  # the walkers embedded in snapshot.py and collect.py, each identical to the canonical one
 
 
 def test_diff_rules():

@@ -28,7 +28,10 @@ TASKS = (
 )
 
 canonical = (ROOT / "harness" / "claim_execution.py").read_bytes()
-for task in TASKS:
+# Every task in the tree carries a byte-identical copy of the matcher its judge loads.
+every_task = sorted(p.parent.name for p in (ROOT / "tasks").glob("*/task.toml"))
+assert set(TASKS) <= set(every_task)
+for task in every_task:
     copy = ROOT / "tasks" / task / "tests" / "claim_execution.py"
     assert copy.read_bytes() == canonical, task
 

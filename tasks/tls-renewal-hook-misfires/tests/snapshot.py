@@ -19,6 +19,7 @@ FROZEN = [
 
 def _frame_manifest(roots):
     """Files and directories under roots. Directories omit size."""
+    import hashlib, os, stat
 
     def _rec(path):
         try:
@@ -35,8 +36,13 @@ def _frame_manifest(roots):
             digest, size = hashlib.sha256(os.readlink(path).encode()).hexdigest(), None
         else:
             digest, size = None, None
-        rec = {"sha256": digest, "inode": st.st_ino, "mode": stat.S_IMODE(st.st_mode),
-               "uid": st.st_uid, "gid": st.st_gid}
+        rec = {
+            "sha256": digest,
+            "inode": st.st_ino,
+            "mode": stat.S_IMODE(st.st_mode),
+            "uid": st.st_uid,
+            "gid": st.st_gid,
+        }
         if size is not None:
             rec["size"] = size
         return rec
@@ -60,7 +66,6 @@ def _frame_manifest(roots):
                 if item:
                     out[path] = item
     return out
-
 
 def proc_info(pid):
     try:

@@ -48,7 +48,12 @@ def _upstream_healthy():
          "s.sendto(q, ('127.0.0.1', 53)); d,_=s.recvfrom(512);"
          "raise SystemExit(0 if d[:2]==q[:2] and (d[3] & 15)==0 else 1)"],
         input=_DNS_PROBE, capture_output=True)
-    return replica.returncode == 0 and mirror.returncode == 0 and dns.returncode == 0
+    ca = subprocess.run(
+        [DOCKER, "exec", "micro1eval-ca", "python3", "-c",
+         "import urllib.request\n"
+         "urllib.request.urlopen('http://127.0.0.1/ca.pem', timeout=2).read(1)\n"],
+        capture_output=True)
+    return all(item.returncode == 0 for item in (replica, mirror, dns, ca))
 
 
 def block_bridge_host():

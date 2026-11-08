@@ -45,7 +45,7 @@ assert "name: micro1eval-upstream" in compose
 ids = sorted(p.name for p in (ROOT / "tasks").iterdir() if (p / "task.toml").exists())
 active = active_task_ids(ids)
 assert active == ids, active
-assert len(active) == 6, active
+assert len(active) >= 6, active  # every task in the tree joins the internal network
 for task_id in active:
     text = (ROOT / "tasks" / task_id / "environment" / "docker-compose.yaml").read_text()
     assert "micro1eval-upstream" in text, task_id
