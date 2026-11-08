@@ -123,6 +123,7 @@ def test_report_window_request_ends_on_a_user_turn():
     assert verdict["overclaim"] is False
     assert budget.handoff is True
     assert budget.stop is None
+    assert agent.handoff_submissions == [{"body": json.dumps(claim), "position": 0}]
 
 
 def test_user_turn_is_never_empty():
