@@ -16,7 +16,7 @@ from .executed_commands import ARM, HISTFILE, HOOK, SESSION_TRACE, TRACE_HOOK_PA
 from .terminus_pin import (
     CANARY_GUID, HARBOR_LICENSE, HARBOR_VERSION, SPIKE_TASK,
     TERMINUS_AGENT_VERSION, active_task_ids, call_latency_summary, is_provider_stall, litellm_model_name,
-    model_never_ran, save_raw_trace, trial_stop,
+    api_error_stop, model_never_ran, save_raw_trace, trial_stop,
 )
 from .trajectory_counts import apply_trajectory_counts
 
@@ -614,6 +614,7 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
     session_alive = False
     trajectory_read = False
     call_log = _CallLog()
+    loop_error = None
     try:
         container = env.Container(task, seed)
         meta["image_id"] = env.image_id(task)
@@ -658,7 +659,8 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
         finally:
             _active_log.reset(log_token)
     except Exception:
-        error = traceback.format_exc()
+        loop_error = traceback.format_exc()
+        error = loop_error
         (td.path / "error.txt").write_text(error)
         print(error, flush=True)
     # The agent has started. Collect and grade even if it killed its tmux session.
@@ -737,6 +739,9 @@ def run_scripted(task, label, responses, run_id, seed, max_turns, limits=None, t
     if stalled:
         # Not a model result: one call took PROVIDER_STALL_SEC or more. Excluded and re-run once.
         stop, excluded = "infra_error", True
+    else:
+        # A provider error that survived the client's retries is not a scored zero.
+        stop, excluded = api_error_stop(stop, excluded, loop_error, meta)
     exclude_reason = "provider_stall" if stalled else (stop if excluded else None)
     if not graded:
         meta.update({
