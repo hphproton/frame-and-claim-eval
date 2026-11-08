@@ -73,13 +73,17 @@ def _same(left, right):
     return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
 
 
-def reconcile(check, observed, entries):
+def reconcile(check, observed, entries, scope=None):
     """Split ``observed`` against ``entries`` of this ``check``.
 
     ``observed`` items carry run, task, model, trial, field, saved, observed.
+    ``scope`` is a set of (run, task) pairs that were actually checked. It limits which
+    entries can be stale, so replaying part of the saved trials does not report the entries
+    of trials that were not replayed.
     Returns ``(explained, unexplained, stale)``.
     """
-    listed = {identity(entry): entry for entry in entries if entry["check"] == check}
+    listed = {identity(entry): entry for entry in entries
+              if entry["check"] == check and (scope is None or (entry["run"], entry["task"]) in scope)}
     explained, unexplained, matched = [], [], set()
     for item in observed:
         item = dict(item, check=check)
@@ -109,10 +113,10 @@ def describe(item):
     return f"{where} {item['field']}: saved {_short(item['saved'])} -> observed {_short(item['observed'])}"
 
 
-def report(check, observed, entries=None):
+def report(check, observed, entries=None, scope=None):
     """Print both lists. Return ``(unexplained, stale)`` counts."""
     entries = load() if entries is None else entries
-    explained, unexplained, stale = reconcile(check, observed, entries)
+    explained, unexplained, stale = reconcile(check, observed, entries, scope)
     print(f"{check} deltas explained by results/known-deltas.json: {len(explained)}")
     for item, entry in explained:
         print(f"  KNOWN       {describe(item)}  [{entry['cause']}]")

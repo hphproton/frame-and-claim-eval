@@ -55,6 +55,13 @@ assert counts == (1, 0), counts
 counts, _ = run([], [entry(check="reproduce")])
 assert counts == (0, 0), counts
 
+# Replaying part of the saved trials does not make the entries of the others stale.
+two = [entry(run="a", task="t1"), entry(run="a", task="t2"), entry(run="b", task="t1")]
+assert len(kd.reconcile("replay", [], two)[2]) == 3
+only = kd.reconcile("replay", [], two, scope={("a", "t1")})[2]
+assert [(e["run"], e["task"]) for e in only] == [("a", "t1")], only
+assert kd.reconcile("replay", [], two, scope={("c", "t9")})[2] == []
+
 # observed_varies accepts any observed value that still differs from the saved one.
 varies = entry(field="key_fingerprint:actual", saved="AAAA", observed="<varies>", observed_varies=True,
                cause="mirror_key_regenerated")

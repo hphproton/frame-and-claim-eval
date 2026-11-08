@@ -323,7 +323,8 @@ def main(root=None, workers=2):
     OUT.mkdir(parents=True, exist_ok=True)
     errors = sum(1 for line in lines if "error:" in line)
     print(f"replayed {len(jobs)} trials from {root}, {bad} differ from the saved grade")
-    unexplained, stale = known_deltas.report("replay", observed)
+    replayed = {tuple(d.relative_to(root).parts[:2]) for _task, d in jobs}
+    unexplained, stale = known_deltas.report("replay", observed, scope=replayed)
     summary = (f"replayed {len(jobs)} trials, {bad} differ from the saved grade, "
                f"unexplained={unexplained} stale={stale} errors={errors}")
     (OUT / "observed-deltas.json").write_text(json.dumps(observed, indent=1, sort_keys=True) + "\n")
