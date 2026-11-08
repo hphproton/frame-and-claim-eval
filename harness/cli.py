@@ -150,13 +150,24 @@ def cmd_run(a):
         if m["provider"] != "scripted" and _scored_trial(run_id, tid, m["label"], trial):
             print(json.dumps({"task": tid, "model": m["label"], "trial": trial, "skip": "completed"}), flush=True)
             return None
-        # A saved api_error from an earlier process is the first attempt. Move it
-        # aside before this process runs the one re-run, so the failure stays on disk.
+        # A saved api_error or provider_stall from an earlier process is the first
+        # attempt. Move it aside before this process runs the one re-run, so the
+        # failure stays on disk. A kept attempt that is still that failure is done.
         api_reran = False
+        stall_reran = False
+        if m["provider"] != "scripted" and _is_provider_stall(saved) and _kept_attempt(
+                run_id, tid, m["label"], trial, "provider_stall"):
+            print(json.dumps({
+                "task": tid, "model": m["label"], "trial": trial, "skip": "provider_stall_rerun",
+            }), flush=True)
+            return None
         if m["provider"] != "scripted" and _is_api_error(saved) and not _kept_attempt(
                 run_id, tid, m["label"], trial, "api_error"):
             _keep_attempt(run_id, tid, m["label"], trial, "api_error")
             api_reran = True
+        elif m["provider"] != "scripted" and _is_provider_stall(saved):
+            _keep_attempt(run_id, tid, m["label"], trial, "provider_stall")
+            stall_reran = True
         started_spent = None
         with gate:
             if stopped:
@@ -178,7 +189,6 @@ def cmd_run(a):
             active.add(job_key)
         v, meta = run_trial(task, m, trial, seed)
         attempts = 1
-        stall_reran = False
         while m["provider"] != "scripted":
             if meta.get("exclude_reason") == "provider_stall" and not stall_reran:
                 # One call took 300 s or more. Keep that attempt, then run the same seed once.
@@ -316,6 +326,12 @@ def _is_api_error(meta):
     if not meta:
         return False
     return meta.get("stop_reason") == "api_error" or meta.get("exclude_reason") == "api_error"
+
+
+def _is_provider_stall(meta):
+    if not meta:
+        return False
+    return meta.get("exclude_reason") == "provider_stall" or meta.get("provider_stall") is True
 
 
 def _existing_spend(run_id):
