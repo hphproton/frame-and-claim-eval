@@ -2052,11 +2052,15 @@ def _ensure_dir(root, path):
             os.close(parent_fd)
 
 
+# `exists` exits 0 for a present path and this code for an absent one. An uncaught exception
+# exits 1, so a fault cannot be mistaken for "not there yet", whatever is on stderr.
+EXISTS_ABSENT_RC = 3
+
+
 def path_exists(pid, path):
     """True when path resolves inside the container. Does not start a process there.
 
-    A missing path is false. Any other error propagates: the ready probe treats
-    stderr as a failed setup, not as "not ready yet".
+    A missing path is false. Any other error propagates and exits 1 (see EXISTS_ABSENT_RC).
     """
     _absolute_container_path(path)
     root = _container_root(pid)
@@ -2188,7 +2192,7 @@ def main(argv):
         observe(int(argv[2]), argv[3], key, apt, sshd, image, rotated)
         return 0
     if op == "exists":
-        return 0 if path_exists(int(argv[2]), argv[3]) else 1
+        return 0 if path_exists(int(argv[2]), argv[3]) else EXISTS_ABSENT_RC
     if op == "read":
         sys.stdout.buffer.write(read_path(int(argv[2]), argv[3]))
         return 0

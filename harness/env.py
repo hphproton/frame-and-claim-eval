@@ -323,9 +323,13 @@ class Container:
             probe = host_observe.privileged(["exists", str(self.host_pid()), path])
             if probe.returncode == 0:
                 return
-            err = (probe.stderr or b"").decode(errors="replace").strip()
-            if err:
-                raise RuntimeError(f"{self.name}: ready probe failed\n{err[-2000:]}")
+            # The helper exits 0 when the file exists and EXISTS_ABSENT_RC when it does not. Text on
+            # its stderr beside either is a warning (a stray interpreter warning once killed two
+            # trial starts). Any other exit code, such as the 1 of an uncaught exception, is a
+            # fault in the probe and stops the start with its stderr.
+            if probe.returncode != host_observe.EXISTS_ABSENT_RC:
+                err = (probe.stderr or b"").decode(errors="replace").strip()
+                raise RuntimeError(f"{self.name}: ready probe failed (exit {probe.returncode})\n{err[-2000:]}")
             time.sleep(0.5)
         logs = host_observe.privileged(["read", str(self.host_pid()), "/var/log/setup.log"])
         text = (logs.stdout or b"").decode(errors="replace") if logs.returncode == 0 else ""

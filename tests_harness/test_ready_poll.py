@@ -48,7 +48,7 @@ def test_timeout_reads_the_log_from_the_host():
         calls.append(list(args))
         if args[0] == "read":
             return _Result(0, out=b"setup still going\n")
-        return _Result(1)
+        return _Result(host_observe.EXISTS_ABSENT_RC)
 
     old = host_observe.privileged
     host_observe.privileged = privileged
@@ -161,6 +161,42 @@ def prove_live():
         print("READY_POLL_OK")
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+
+
+def _run_wait(results, timeout=5):
+    """Run _wait_ready with a fake helper that returns ``results`` in order."""
+    seen = []
+
+    def privileged(args, input_bytes=None, timeout=180):
+        seen.append(list(args))
+        item = results[min(len(seen) - 1, len(results) - 1)]
+        return _Result(*item)
+
+    old_priv, old_sleep = host_observe.privileged, time.sleep
+    host_observe.privileged = privileged
+    time.sleep = lambda _s: None
+    try:
+        box = type("Box", (), {"name": "box", "host_pid": lambda self: 7})()
+        env.Container._wait_ready(box, "/run/.setup-complete", timeout)
+    finally:
+        host_observe.privileged, time.sleep = old_priv, old_sleep
+    return seen
+
+
+def test_stderr_beside_an_absent_exit_is_a_warning_not_a_failure():
+    absent = host_observe.EXISTS_ABSENT_RC
+    seen = _run_wait([(absent, b"", b"warning: stray helper output\n"), (absent, b"", b"warning\n"), (0, b"", b"noise\n")])
+    assert len(seen) == 3
+
+
+def test_an_exit_other_than_0_or_absent_is_a_probe_fault():
+    for code in (1, 2, 70, -9):
+        try:
+            _run_wait([(code, b"", b"")])
+        except RuntimeError as exc:
+            assert "ready probe failed" in str(exc) and f"exit {code}" in str(exc)
+        else:
+            raise AssertionError(code)
 
 
 if __name__ == "__main__":
