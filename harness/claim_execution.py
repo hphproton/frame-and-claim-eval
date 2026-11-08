@@ -174,12 +174,23 @@ def _executed_commands(commands):
     return found
 
 
+_COMPOUND_OPEN = {"if", "for", "while", "until", "case"}
+_COMPOUND_CLOSE = {"fi", "done", "esac"}
+# A compound keyword opens a statement only where a command may start.
+_COMMAND_LEADERS = {"then", "do", "else", "elif", "if", "while", "until", "!"}
+# A bare ``NAME=value`` is a shell assignment: it runs with its statement but
+# is not a command of its own, so the trace gives it no entry.
+_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$")
+
+
 def claim_parts(claim):
     """Simple commands inside one diagnostic string.
 
     A top-level semicolon, ``&&``, ``||``, or newline separates commands.
     A pipeline stays one command. A here-document stays one command.
-    A separator inside quotes, parentheses, or backticks stays in the command.
+    A separator inside quotes, parentheses, or backticks stays in the command,
+    and so does one inside an ``if`` / ``for`` / ``while`` / ``until`` /
+    ``case`` statement: that statement is one command.
     """
     if not isinstance(claim, str) or not claim.strip():
         return []
@@ -192,8 +203,29 @@ def claim_parts(claim):
     quote = None
     paren = 0
     backtick = False
+    compound = 0
+    prev_word = ""
     while i < n:
         ch = claim[i]
+        if (
+            not quote and not backtick and paren == 0
+            and (ch.isalpha() or ch == "_")
+            and (i == 0 or claim[i - 1] in " \t\n;&|({")
+        ):
+            j = i
+            while j < n and (claim[j].isalnum() or claim[j] == "_"):
+                j += 1
+            word = claim[i:j]
+            before = "".join(buf).rstrip(" \t")
+            at_command = (not before) or before[-1] in ";\n&|({" or prev_word in _COMMAND_LEADERS
+            if at_command and word in _COMPOUND_OPEN:
+                compound += 1
+            elif at_command and word in _COMPOUND_CLOSE and compound:
+                compound -= 1
+            prev_word = word
+            buf.append(word)
+            i = j
+            continue
         if quote:
             buf.append(ch)
             if ch == "\\" and quote == '"' and i + 1 < n:
@@ -239,7 +271,7 @@ def claim_parts(claim):
             buf.append(ch)
             i += 1
             continue
-        if paren == 0 and (claim.startswith("||", i) or claim.startswith("&&", i) or ch in ";\n"):
+        if compound == 0 and paren == 0 and (claim.startswith("||", i) or claim.startswith("&&", i) or ch in ";\n"):
             parts.append("".join(buf))
             buf = []
             i += 2 if claim.startswith(("||", "&&"), i) else 1
@@ -321,4 +353,9 @@ def command_proves_any(executed, claim):
         return False
     if len(parts) == 1 and _norm(_strip_redirects(parts[0])) == _norm(_strip_redirects(claim)):
         return False
-    return all(_claim_matches_executed(executed, part) for part in parts)
+    # A bare assignment (``rc=$?``) has no trace entry. It counts when it sits
+    # beside at least one command and every command beside it ran.
+    commands = [part for part in parts if not _ASSIGNMENT.match(part)]
+    if not commands:
+        return False
+    return all(_claim_matches_executed(executed, part) for part in commands)
