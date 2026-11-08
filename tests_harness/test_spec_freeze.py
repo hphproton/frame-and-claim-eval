@@ -36,10 +36,13 @@ def test_a_wording_edit_changes_the_instruction_hash_only():
         edited = storage.spec_stamp(copy)
         assert edited["judge_sha256"] != after["judge_sha256"] and edited["tests_sha256"] != after["tests_sha256"]
         # The text revision comes from harness.toml and is separate from spec_version.
+        # Replace a key that is already there. Appending a second key is not valid TOML.
         toml = copy / "harness.toml"
-        toml.write_text(toml.read_text() + "instruction_text_rev = 2\n")
+        lines = [ln for ln in toml.read_text().splitlines() if not ln.startswith("instruction_text_rev")]
+        lines.append("instruction_text_rev = 9")
+        toml.write_text("\n".join(lines) + "\n")
         revised = storage.spec_stamp(copy)
-        assert revised["instruction_text_rev"] == 2 and revised["spec_version"] == before["spec_version"]
+        assert revised["instruction_text_rev"] == 9 and revised["spec_version"] == before["spec_version"]
 
 
 def test_missing_files_give_none_not_a_crash():
