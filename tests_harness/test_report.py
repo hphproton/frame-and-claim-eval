@@ -39,6 +39,7 @@ def test_exclusion_and_cost():
     rows = {(r["task"], r["model"]): r for r in summary["rows"]}
     assert ("b", "m") in rows and rows[("b", "m")]["n"] == 2
     assert rows[("b", "m")]["reward"]["k"] == 0
+    assert rows[("b", "m")]["grade_reward"]["k"] == 1
     assert rows[("b", "m")]["fixed"]["k"] == 0
     assert rows[("b", "m")]["n_excluded"] == 0
     assert rows[("a", "m")]["n"] == 2
@@ -94,7 +95,9 @@ def test_stall_scores_zero_and_coverage():
     summary = report.aggregate(trials)
     rows = {(r["task"], r["model"]): r for r in summary["rows"]}
     assert rows[("a", "staller")]["n"] == 1 and rows[("a", "staller")]["reward"]["k"] == 0
+    assert rows[("a", "staller")]["grade_reward"]["k"] == 1
     assert rows[("b", "staller")]["reward"]["k"] == 0
+    assert rows[("b", "staller")]["grade_reward"]["k"] == 1
     assert ("c", "staller") not in rows
     by_model = {c["model"]: c for c in summary["coverage"]}
     assert by_model["finisher"]["scored_tasks"] == ["a", "b"]
@@ -105,6 +108,8 @@ def test_stall_scores_zero_and_coverage():
     assert "Per-model task coverage" in text
     assert "score as reward 0" in text
     assert "wall_clock and max_steps stay in the rates" in text
+    assert "reward from grade.json" in text
+    assert "Sum of the reward column: 2/4. Sum of reward from grade.json: 4/4." in text
 
 
 def test_json_format_counter_is_separate():
