@@ -2,13 +2,13 @@
 
 Historical acceptance record from 2026-11-06, on an earlier nine-task set. It checks the fixes for the run-6 review findings (F-re-1 to F-re-12, F-new-14 to F-new-16).
 
-The commands below ran on commit `a379aa67b69dd7085bfb16dd651fda6d5ca38b8f`. This file is committed as a child of that commit. A commit cannot contain its own hash, so the summaries say `source_sha a379aa67b69dd7085bfb16dd651fda6d5ca38b8f` and this file is the next commit.
+The commands below ran on the parent of the commit that added this file. A commit cannot contain its own hash, so the `results/*/SUMMARY.txt` files committed alongside this record named that parent in their `source_sha` line. Later runs have since replaced those files.
 
-`make controls` ran one commit earlier, on `d9965f951e35095d16447826b76ab788c0c9a340`, before the consumer-identity fix. Replay of those saved trials on `a379aa6` matched every score bit, including both generated-config oracles. The live control rewards below are the `grade.json` files in `runs/controls-offline`.
+`make controls` ran one commit earlier, before the consumer-identity fix. Replay of those saved trials on the tested commit matched every score bit, including both generated-config oracles. The live control rewards below are the `grade.json` files in `runs/controls-offline`.
 
 | item | command | expected | got |
 |---|---|---|---|
-| full selftest | `python3 -m harness.cli selftest --workers 4 --seed 20261105` | exit 0, `ALL_OK=True` | 198 `PASS` lines, 0 `FAIL`, `ALL_OK=True`, exit 0. `results/selftest/SUMMARY.txt` starts with `source_sha a379aa67b69dd7085bfb16dd651fda6d5ca38b8f` |
+| full selftest | `python3 -m harness.cli selftest --workers 4 --seed 20261105` | exit 0, `ALL_OK=True` | 198 `PASS` lines, 0 `FAIL`, `ALL_OK=True`, exit 0. `results/selftest/SUMMARY.txt` starts with that `source_sha` line |
 | replay | `python3 -m harness.cli replay --workers 4` | 0 mismatches | `replayed 47 trials, 0 mismatches`, exit 0. `results/replay/SUMMARY.txt` has the same `source_sha` |
 | reproduce | `python3 -m harness.cli reproduce` | 0 mismatches | 47 runs and 198 selftests, `REPRO_MISMATCHES=0`, exit 0. `results/reproduce/SUMMARY.txt` has the same `source_sha` |
 | harness tests | `make test-harness` | exit 0 | `TEST_HARNESS_OK`, exit 0. `results/test-harness/SUMMARY.txt` has the same `source_sha` |

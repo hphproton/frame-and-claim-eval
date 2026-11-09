@@ -2,7 +2,7 @@
 
 `make test-harness` uses system Python, which does not have Harbor. This file
 skips there. With the venv from `make setup`, it builds a LiveTerminus and asks
-it for one turn. On 3467d13 that raises TypeError, because the method was
+it for one turn. Before the fix that raised TypeError, because the method was
 copied from ScriptedTerminus and its zero-arg super() is not valid for a
 LiveTerminus. After the fix the same call returns the parent turn.
 """

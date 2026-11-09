@@ -69,7 +69,7 @@ Every commit: author and committer are `HPH Proton <44660214+hphproton@users.nor
 Co-authored-by: Cursor Agent <cursoragent@cursor.com>
 ```
 
-No agent URLs. No other trailers. Do not rewrite commit `06fa5e8`.
+No agent URLs. No other trailers. Do not rewrite the root commit.
 
 ## Secrets and private data
 
