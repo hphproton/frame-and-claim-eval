@@ -1,6 +1,6 @@
-# Acceptance for f3064bd
+# Acceptance: logrotate and joined-diagnostic follow-up
 
-Historical acceptance record for commit `f3064bd`, on an earlier task set.
+Historical acceptance record from later on 2026-11-06, on the same nine-task set. It rechecks the review fixes after the logrotate, apt note, and joined-diagnostic changes.
 
 The commands below ran on commit `f3064bdbef8f57dfc83e86ce02cbbb810a1cba72`. This file is committed as a child of that commit. A commit cannot contain its own hash, so the summaries say `source_sha f3064bdbef8f57dfc83e86ce02cbbb810a1cba72` and this file is the next commit.
 

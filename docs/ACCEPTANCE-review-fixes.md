@@ -1,6 +1,6 @@
-# Acceptance for a379aa6
+# Acceptance: fixes from the run-6 review
 
-Historical acceptance record for commit `a379aa6`, on an earlier task set.
+Historical acceptance record from 2026-11-06, on an earlier nine-task set. It checks the fixes for the run-6 review findings (F-re-1 to F-re-12, F-new-14 to F-new-16).
 
 The commands below ran on commit `a379aa67b69dd7085bfb16dd651fda6d5ca38b8f`. This file is committed as a child of that commit. A commit cannot contain its own hash, so the summaries say `source_sha a379aa67b69dd7085bfb16dd651fda6d5ca38b8f` and this file is the next commit.
 
