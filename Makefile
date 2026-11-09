@@ -25,7 +25,7 @@ help:
 	@echo "make live-smoke   LiveTerminus through a local fake model (no keys; needs make setup and Docker)"
 	@echo "make run         Terminus 2 on the active tasks (needs OPENROUTER_API_KEY / GEMINI_API_KEY); WORKERS=n runs n trials at once, SEED=n sets the seed (default 20261101)"
 	@echo "make regrade     offline pilot regrade, RUNS= and OUT= (no keys, no Docker)"
-	@echo "make report      95% bootstrap intervals, RUNS= and optional OUT="
+	@echo "make report      Wilson 95% cells; bootstrap intervals only where n > 3, RUNS= and optional OUT="
 
 reproduce:
 	$(PY) -m harness.cli reproduce

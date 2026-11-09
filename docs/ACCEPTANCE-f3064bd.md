@@ -1,5 +1,7 @@
 # Acceptance for f3064bd
 
+Historical acceptance record for commit `f3064bd`, on an earlier task set.
+
 The commands below ran on commit `f3064bdbef8f57dfc83e86ce02cbbb810a1cba72`. This file is committed as a child of that commit. A commit cannot contain its own hash, so the summaries say `source_sha f3064bdbef8f57dfc83e86ce02cbbb810a1cba72` and this file is the next commit.
 
 `make controls` wrote a fresh `runs/controls-offline`. Every score bit matched the trials that were already committed, so those new files were not kept. Replay of the committed trials on this commit matched every score bit, including both logrotate oracles.

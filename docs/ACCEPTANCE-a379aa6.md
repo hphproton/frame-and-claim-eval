@@ -1,5 +1,7 @@
 # Acceptance for a379aa6
 
+Historical acceptance record for commit `a379aa6`, on an earlier task set.
+
 The commands below ran on commit `a379aa67b69dd7085bfb16dd651fda6d5ca38b8f`. This file is committed as a child of that commit. A commit cannot contain its own hash, so the summaries say `source_sha a379aa67b69dd7085bfb16dd651fda6d5ca38b8f` and this file is the next commit.
 
 `make controls` ran one commit earlier, on `d9965f951e35095d16447826b76ab788c0c9a340`, before the consumer-identity fix. Replay of those saved trials on `a379aa6` matched every score bit, including both generated-config oracles. The live control rewards below are the `grade.json` files in `runs/controls-offline`.
