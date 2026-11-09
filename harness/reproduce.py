@@ -53,7 +53,7 @@ def main():
         print(text)
         lines.append(text)
         if out is not None and n:
-            print(report.write(report.aggregate(report.load_trials(root)), out, "Results (regraded offline)"))
+            print(report.write(report.aggregate(report.load_trials(root)), out, report.POOLED_TITLE))
     if not any(storage.RUNS.rglob("grade.json")):
         note = "No agent runs saved yet (runs/ is empty): pilot results are TODO."
         print(note)
